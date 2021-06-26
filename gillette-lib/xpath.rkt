@@ -13,9 +13,23 @@ Examples
 ; /A
 (xpath (/ "A"))
 
-; which, in full, would be
+; which, in full, would be:
 (xpath/full (in-root
              (['child "A" #f])))
+
+; slightly different, but similar:
+
+; A
+
+; ==>
+(xpath "A")
+
+; ==>
+(xpath/full (['child "A" #f]))
+
+; which probably would get turned into
+(parameterize ([current-node (root)])
+  (find-children (node-has-name? "A")))
 
 ; xexpr? -> (or/c string? #f)
 (define (xexpr-node-name xe)
@@ -92,10 +106,6 @@ Examples
 (define (find-descendant-or-self predicate)
   (define n (current-node))
   (filter predicate (cons n (descendants n))))
-
-; which probably would get turned into
-(parameterize ([current-node (root)])
-  (find-children (node-has-name? "A")))
 
 ; @id = following::*[@id]/@id
 ; ==>

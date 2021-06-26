@@ -14,24 +14,6 @@
                  (or/c xdm-item? xdm-value?)
                  boolean?)])
 
-(define (xdm-item? x)
-  (or (string? x)
-      (number? x)
-      (boolean? x)
-      (jsexpr? x)
-      (xml:xexpr? x)
-      (xml:document? x)
-      (xml:element? x)
-      (xml:attribute? x)
-      (xml:p-i? x)
-      (xml:cdata? x)
-      (xml:comment? x)))
-
-(define (xdm-value? x)
-  (or (xdm-item? x)
-      (and (list? x)
-           (andmap xdm-item? x))))
-
 (define (equal-jsexprs? jsexpr1 jsexpr2)
   (cond [(number? jsexpr1)
          (and (number? jsexpr2)
@@ -57,22 +39,6 @@
                                (equal-jsexprs? (hash-ref jsexpr1 k)
                                                (hash-ref jsexpr2 k)))
                              keys1))))]))
-
-; xexpr? -> listof (list symbol? string?)
-(define (xexpr-attrs xe)
-  (match xe
-    [(list (list (list symbol? string?) ...) _)
-     (cadr xe)]
-    [_
-     (list)]))
-
-; xexpr? -> listof xexpr?
-(define (xexpr-children xe)
-  (match xe
-    [(list _ (list (list symbol? string?) ...) kid ...)
-     (cddr xe)]
-    [_
-     (cdr xe)]))
 
 (define (equal-xexpr-attrs? attrs1 attrs2)
   (cond [(null? attrs1)

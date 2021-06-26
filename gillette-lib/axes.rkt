@@ -1,4 +1,4 @@
-#lang racket/base
+#lang typed/racket/base
 
 (provide ancestor
          ancestor-or-self
@@ -14,35 +14,39 @@
          preceding-sibling
          self)
 
-(require racket/contract
-         racket/list
-         (file "structs.rkt")
-         (file "interface.rkt"))
+(require racket/list
+         (file "types.rkt")
+         (file "accessors.rkt"))
 
-(define/contract (ancestor aNode)
-  (node? . -> . (listof node?))
+(: ancestor : (-> XDMNode
+                  (Listof XDMNode)))
+(define (ancestor aNode)
   (define p (parent aNode))
   (cond [(node? p)
          (cons p (ancestor p))]
         [else (list)]))
 
-(define/contract (ancestor-or-self aNode)
-  (node? . -> . (listof node?))
+(: ancestor-or-self (-> XDMNode
+                        (Listof XDMNode)))
+(define (ancestor-or-self aNode)
   (cons aNode (ancestor aNode)))
 
-(define/contract (attribute aNode)
-  (node? . -> . (listof node?))
+(: attribute (-> XDMNode
+                 (Listof XDMNode)))
+(define (attribute aNode)
   (cond [(element-node? aNode)
          (element-node-attributes aNode)]
         [else
          (list)]))
 
-(define/contract (child aNode)
-  (node? . -> . (listof node?))
+(: child (-> XDMNode
+             (Listof XDMNode)))
+(define (child aNode)
   (node-children aNode))
 
-(define/contract (descendant aNode)
-  (node? . -> . (listof node?))
+(: descendant (-> XDMNode
+                  (Listof XDMNode)))
+(define (descendant aNode)
   (define kids (node-children aNode))
   (cond [(eq? #f kids)
          (list)]
@@ -50,12 +54,14 @@
          (append kids
                  (apply append (map descendant kids)))]))
 
-(define/contract (descendant-or-self aNode)
-  (node? . -> . (listof node?))
+(: descendant-or-self (-> XDMNode
+                          (Listof XDMNode)))
+(define (descendant-or-self aNode)
   (cons aNode (descendant aNode)))
 
-(define/contract (following-sibling aNode)
-  (node? . -> . (listof node?))
+(: following-sibling (-> XDMNode
+                         (Listof XDMNode)))
+(define (following-sibling aNode)
   (define p (parent aNode))
   (cond [(node? p)
          (define kids (node-children p))
@@ -67,25 +73,31 @@
         [else
          (list)]))
 
-(define/contract (following aNode)
-  (node? . -> . (listof node?))
+(: following (-> XDMNode
+                 (Listof XDMNode)))
+(define (following aNode)
   (define sibs (following-sibling aNode))
   (append sibs
           (apply append
                  (map descendant sibs))))
 
-(define/contract (namespace aNode)
-  (node? . -> . (listof node?))
+(: namespace (-> XDMNode
+                 (Listof XDMNode)))
+(define (namespace aNode)
   (list))
 
-(define/contract (parent aNode)
-  (node? . -> . (listof node?))
-  (define p (parent aNode))
-  (cond [p (list p)]
-        [else (list)]))
+(: parent (-> XDMNode
+              (Listof XDMNode)))
+(define (parent aNode)
+  (define p (node-parent aNode))
+  (cond [(eq? #f p)
+         (list)]
+        [else
+         (list p)]))
 
-(define/contract (preceding-sibling aNode)
-  (node? . -> . (listof node?))
+(: preceding-sibling (-> XDMNode
+                         (Listof XDMNode)))
+(define (preceding-sibling aNode)
   (define p (parent aNode))
   (cond [(node? p)
          (define kids (node-children p))
@@ -97,8 +109,12 @@
         [else
          (list)]))
 
-(define/contract (preceding aNode)
-  (node? . -> . (listof node?))
+(: preceding (-> XDMNode
+                 (Listof XDMNode)))
+(define (preceding aNode)
+  (: keep-going (-> (Listof XDMNode)
+                    (Listof XDMNode)
+                    (Listof XDMNode)))
   (define (keep-going nodes result)
     (cond [(null? nodes)
            result]
@@ -107,15 +123,16 @@
            (cond [(member n result)
                   (keep-going (cdr nodes) result)]
                  [else
-                  (define p (parent n))
-                  (cond [p
-                         (keep-going (cons p (cdr nodes))
+                  (define p (node-parent n))
+                  (cond [(eq? #f p)
+                         (keep-going (cdr nodes)
                                      (cons n result))]
                         [else
-                         (keep-going (cdr nodes)
+                         (keep-going (cons p (cdr nodes))
                                      (cons n result))])])]))
   (keep-going (preceding-sibling aNode) (list)))
 
-(define/contract (self aNode)
-  (node? . -> . (listof node?))
+(: self (-> XDMNode
+            (Listof XDMNode)))
+(define (self aNode)
   (list aNode))
