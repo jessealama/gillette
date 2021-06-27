@@ -1,6 +1,8 @@
-#lang racket/base
+#lang typed/racket/base
 
 (provide current-node)
 
-; (or/c #f xdm-item?)
+(require (file "types.rkt"))
+
+(: current-node (Parameter (Option XDMNode)))
 (define current-node (make-parameter #f))

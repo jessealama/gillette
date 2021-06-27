@@ -2,202 +2,101 @@
 
 (provide xpath)
 
-(require syntax/parse)
+(require racket/list
+         (for-syntax syntax/parse
+                     racket/base)
+         (file "parameters.rkt")
+         (file "types.rkt")
+         (prefix-in axis: (file "axes.rkt")))
+
+(module+ test
+  (require rackunit
+           (prefix-in xml: xml)
+           (file "convert.rkt")))
+
+; -> element-node?
+(define (root)
+  (define (find-it n)
+    (define p (node-parent n))
+    (cond [(eq? #f p) n]
+          [else (find-it p)]))
+  (find-it (current-node)))
+
+(define (child predicate)
+  (filter predicate (axis:child (current-node))))
+
+(define (ancestor predicate)
+  (filter predicate (axis:ancestor (current-node))))
+
+(define (ancestor-or-self predicate)
+  (filter predicate (axis:ancestor-or-self (current-node))))
+
+(define (attribute predicate)
+  (filter predicate (axis:attribute (current-node))))
+
+(define (descendant predicate)
+  (filter predicate (axis:descendant (current-node))))
+
+(define (descendant-or-self predicate)
+  (filter predicate (axis:descendant-or-self (current-node))))
+
+; string? -> (node? -> boolean?)
+(define (element name)
+  (lambda (n)
+    (and (element-node? n)
+         (string=? name (element-node-name n)))))
 
 #|
 
-Examples
+Examples we should handle:
+
+(xpath "A")
+(xpath / "A")
+(xpath "A" [1])
+(xpath // "A")
 
 |#
 
-; /A
-(xpath (/ "A"))
+(define (take/safe lst n)
+  (with-handlers ([exn:fail:contract? (lambda (e) (list))])
+    (take lst n)))
 
-; which, in full, would be:
-(xpath/full (in-root
-             (['child "A" #f])))
-
-; slightly different, but similar:
-
-; A
-
-; ==>
-(xpath "A")
-
-; ==>
-(xpath/full (['child "A" #f]))
-
-; which probably would get turned into
-(parameterize ([current-node (root)])
-  (find-children (node-has-name? "A")))
-
-; xexpr? -> (or/c string? #f)
-(define (xexpr-node-name xe)
-  (match xe
-    [(list (symbol? n) _)
-     (symbol->string n)]
-    [_ #f]))
-
-; string? -> (xdm-item? -> boolean?)
-(define (node-has-name? n)
-  (lambda (node)
-    (cond [(xml:xexpr? n)
-           (let ([name (xexpr-node-name node)])
-             (and (string? name)
-                  (string=? name n)))]
-          [(xml:element? node)
-           (string=? n (xml:element-name node))]
-          [(xml:attribute? node)
-           (string=? n (xml:attribute-name node))]
-          [(xml:p-i? x)
-           (string=? n (xml:p-i-name node))]
-          [else #f])))
-
-(define/contract (ancestors aNode)
-  (node? . -> . (listof node?))
-  (define p (parent aNode))
-  (cond [(node? p)
-         (cons p (ancestors p))]
-        [else (list)]))
-
-(define/contract (descendants aNode)
-  (node? . -> . (listof node?))
-  (cond [(node-with-children? aNode)
-         (define kids (node-with-children-children aNode))
-         (append kids
-                 (apply append (map descendants kids)))]
-        [else
-         (list)]))
-
-(define/contract (following-siblings aNode)
-  (node? . -> . (listof node?))
-  (define p (parent aNode))
-  (cond [(node-with-children? p)
-         (define kids (node-with-children-children p))
-         (define i (index-of p aNode))
-         (drop kids i)]
-        [else
-         (list)]))
-
-(define/contract (following aNode)
-  (node? . -> . (listof node?))
-  (define sibs (following-siblings aNode))
-  (append sibs
-          (apply append
-                 (map descendants sibs))))
-
-; (xdm-item? -> boolean?) -> (listof xdm-item?)
-(define (find-child predicate)
-  (filter predicate (children (current-node))))
-
-(define (find-ancestor predicate)
-  (filter predicate (ancestors (current-node))))
-
-(define (find-ancestor-or-self predicate)
-  (define n (current-node))
-  (filter predicate (cons n (ancestors n))))
-
-(define (find-attribute predicate)
-  (filter predicate (attributes (current-node))))
-
-(define (find-descendant predicate)
-  (filter predicate (descendants (current-node))))
-
-(define (find-descendant-or-self predicate)
-  (define n (current-node))
-  (filter predicate (cons n (descendants n))))
-
-; @id = following::*[@id]/@id
-; ==>
-(xpath (= #:id (following (* [#:id] #:id))))
-
-; would turn into
-
-(lambda ()
-  (define a (attr-ref "id"))
-  (cond [(string? a)
-         (with-axis 'following
-           (find-nodes (lambda (n)
-                         (xdm-equal? a (attr-ref n "id")))))]
-        [else (list)]))
-
-; 1. Axis (optional)
-; 2. Node test
-; 3. Predicate (optional)
-
-(xpath ("step1" "step2" "step3"))
-
-; ==> is a compact form for
-
-(xpath/full ([#f "step1" #f]
-             [#f "step2" #f]
-             [#f "step3" #f]))
-
-; which, making the axes explicit, would be
-
-(xpath/full (['child "step1" #f]
-             ['child "step2" #f]
-             ['child "step3" #f]))
-
-; Perhaps the predicates could also be made explicit:
-
-(xpath/full (['child "step1" (lambda (n) #t)]
-             ['child "step2" (lambda (n) #t)]
-             ['child "step3" (lambda (n) #t)]))
-
-; //books[title="Infinite Jest"]
-
-; could be represented as
-
-(xpath (// "books" [(= #:title "Infinite Jest")]))
-
-; which is a compact form for
-
-(xpath/full (['descendant-or-self "books" [(= #:title "Infinite Jest")]]))
-
-; 4. A//B/*[position()=1]
-
-(xpath ("A" (// "B" * (= 1 (position)))))
-
-; which is compact notation for
-
-(xpath/full (['child "A" (true)]
-             ['descendant-or-self "B" (true)]
-             ['child #t (lambda (n) (= 1 (position)))]))
-
-; Another example:
-
-; a[/html/@lang='en'][@href='help.php'][1]/@target
-
-(xpath ("a" [(= "en" (/ "html" #:lang))]
-            [(= #:href "help.php")]
-            [1]
-            #:target))
-
-; in full could be
-
-(xpath/full (['child "a" [(= "en" (in-root (['child "html" (true)]
-                                            ['attribute "lang" (true)])))
-                          (= #:href "help.php")
-                          (= 1 (position))
-                          #:target]]))
-
-; which might be turned into this Racket code:
-
-(lambda (n)
-  (with-axis 'child
-    (and (node-has-name? "a")
-         (xml-equal? "en"
-                     (in-root
-                      (and (node-has-name? "html")
-                           (with-axis 'attribute
-                             (node-has-name? "lang")))))
-         (xdm-equal? "help.php"
-                     (with-axis 'attribute
-                       (node-has-node? "href")))
-         (xdm-equal? (position) 1)
-         (with-axis 'attribute
-           (node-has-name? "target")))))
+(define (drop/safe lst n)
+  (with-handlers ([exn:fail:contract? (lambda (e) (list))])
+    (drop lst n)))
 
 (define-syntax (xpath stx)
-  ())
+  (syntax-parse stx
+    [(_ / test:string)
+     #'(parameterize ([current-node (root)])
+         (child (element test)))]
+    [(_ // test:string)
+     #'(parameterize ([current-node (root)])
+         (descendant (element test)))]
+    [(_ test:string)
+     #'(child (element test))]
+    [(_ test:string [pos:exact-nonnegative-integer])
+     #'(take/safe (drop/safe (child (element test)) pos)
+                  1)]))
+
+(module+ test
+  (define test-doc/string #<<DOC
+<a>
+  <b>
+    <a/>
+  </b>
+  <c><a/></c>
+</a>
+DOC
+)
+  (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
+  (define test-doc/xdm (xml->xdm test-doc/xml))
+  (parameterize ([current-node test-doc/xdm])
+    (check-equal? (length (xpath "A"))
+                  1)
+    (check-equal? (length (xpath / "A"))
+                  1)
+    (check-equal? (length (xpath "A" [1]))
+                  1)
+    (check-equal? (length (xpath // "A"))
+                  2)))

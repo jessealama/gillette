@@ -24,7 +24,7 @@
   [#:struct source
    ([start : (Option (U Symbol location))]
     [stop : (Option (U Symbol location))])]
-  [#:struct (comment source)
+  [#:struct comment
    ([text : String])]
   [#:struct (p-i source)
    ([target-name : Symbol]
