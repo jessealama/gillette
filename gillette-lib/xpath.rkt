@@ -3,6 +3,7 @@
 (provide xpath)
 
 (require racket/list
+         syntax/parse
          (for-syntax syntax/parse
                      racket/base)
          (file "parameters.rkt")
@@ -23,7 +24,8 @@
   (find-it (current-node)))
 
 (define (child predicate)
-  (filter predicate (axis:child (current-node))))
+  (define nodes (axis:child (current-node)))
+  (filter predicate nodes))
 
 (define (ancestor predicate)
   (filter predicate (axis:ancestor (current-node))))
@@ -38,6 +40,7 @@
   (filter predicate (axis:descendant (current-node))))
 
 (define (descendant-or-self predicate)
+  (define nodes (axis:descendant-or-self (current-node)))
   (filter predicate (axis:descendant-or-self (current-node))))
 
 ; string? -> (node? -> boolean?)
@@ -65,28 +68,33 @@ Examples we should handle:
   (with-handlers ([exn:fail:contract? (lambda (e) (list))])
     (drop lst n)))
 
+(define // 42) ; not actually used!
+
 (define-syntax (xpath stx)
+  (define-literal-set xpath-literals
+    (/ // *))
   (syntax-parse stx
-    [(_ / test:string)
+    #:literal-sets (xpath-literals)
+    [(_ / test:string) ; (xpath / "A")
      #'(parameterize ([current-node (root)])
          (child (element test)))]
-    [(_ // test:string)
+    [(_ // test:string) ; (xpath // "A")
      #'(parameterize ([current-node (root)])
-         (descendant (element test)))]
-    [(_ test:string)
+         (descendant-or-self (element test)))]
+    [(_ test:string) ; (xpath "A")
      #'(child (element test))]
-    [(_ test:string [pos:exact-nonnegative-integer])
-     #'(take/safe (drop/safe (child (element test)) pos)
+    [(_ test:string [pos:exact-nonnegative-integer]) ; (xpath "A" [1])
+     #'(take/safe (drop/safe (child (element test)) (sub1 pos))
                   1)]))
 
 (module+ test
   (define test-doc/string #<<DOC
-<a>
-  <b>
-    <a/>
-  </b>
-  <c><a/></c>
-</a>
+<A>
+  <B>
+    <A/>
+  </B>
+  <C><A/></C>
+</A>
 DOC
 )
   (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
@@ -99,4 +107,4 @@ DOC
     (check-equal? (length (xpath "A" [1]))
                   1)
     (check-equal? (length (xpath // "A"))
-                  2)))
+                  3)))
