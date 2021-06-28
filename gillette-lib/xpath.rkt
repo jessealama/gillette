@@ -23,31 +23,44 @@
           [else (find-it p)]))
   (find-it (current-node)))
 
-(define (child predicate)
-  (define nodes (axis:child (current-node)))
-  (filter predicate nodes))
+; -> (listof node?)
+(define (enumerate-nodes)
+  (define n (current-node))
+  (case (current-axis)
+    ['ancestor
+     (axis:ancestor n)]
+    ['ancestor-or-self
+     (axis:ancestor-or-self n)]
+    ['attribute
+     (axis:attribute n)]
+    ['child
+     (axis:child n)]
+    ['descendant
+     (axis:descendant n)]
+    ['descendant-or-self
+     (axis:descendant-or-self n)]
+    ['following
+     (axis:following n)]
+    ['following-sibling
+     (axis:following-sibling n)]
+    ['namespace
+     (axis:namespace n)]
+    ['parent
+     (axis:parent n)]
+    ['preceding
+     (axis:preceding n)]
+    ['preceding-sibling
+     (axis:preceding-sibling n)]
+    ['self
+     (axis:self n)]))
 
-(define (ancestor predicate)
-  (filter predicate (axis:ancestor (current-node))))
-
-(define (ancestor-or-self predicate)
-  (filter predicate (axis:ancestor-or-self (current-node))))
-
-(define (attribute predicate)
-  (filter predicate (axis:attribute (current-node))))
-
-(define (descendant predicate)
-  (filter predicate (axis:descendant (current-node))))
-
-(define (descendant-or-self predicate)
-  (define nodes (axis:descendant-or-self (current-node)))
-  (filter predicate (axis:descendant-or-self (current-node))))
-
-; string? -> (node? -> boolean?)
+; string? -> (listof node?)
 (define (element name)
-  (lambda (n)
-    (and (element-node? n)
-         (string=? name (element-node-name n)))))
+  (define pred (lambda (n)
+                 (and (element-node? n)
+                      (string=? name (element-node-name n)))))
+  (define nodes (enumerate-nodes))
+  (filter pred nodes))
 
 #|
 
@@ -57,6 +70,7 @@ Examples we should handle:
 (xpath / "A")
 (xpath "A" [1])
 (xpath // "A")
+(xpath // (= #:id (following * #:id)))
 
 |#
 
@@ -75,16 +89,18 @@ Examples we should handle:
     (/ // *))
   (syntax-parse stx
     #:literal-sets (xpath-literals)
-    [(_ / test:string) ; (xpath / "A")
+    [(_ / a ...) ; (xpath / "A")
      #'(parameterize ([current-node (root)])
-         (child (element test)))]
-    [(_ // test:string) ; (xpath // "A")
-     #'(parameterize ([current-node (root)])
-         (descendant-or-self (element test)))]
+         (xpath a ...))]
+    [(_ // a ...) ; (xpath // "A")
+     #'(parameterize ([current-node (root)]
+                      [current-axis 'descendant-or-self])
+         (xpath a ...))]
     [(_ test:string) ; (xpath "A")
-     #'(child (element test))]
+     #'(element test)]
     [(_ test:string [pos:exact-nonnegative-integer]) ; (xpath "A" [1])
-     #'(take/safe (drop/safe (child (element test)) (sub1 pos))
+     #'(take/safe (drop/safe (element test)
+                             (sub1 pos))
                   1)]))
 
 (module+ test

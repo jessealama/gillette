@@ -11,13 +11,21 @@
 
          XDMNode
          XDMItem
+         xdm-item?
+         XDMSequence
+         xdm-sequence?
          XDMValue
+         XDMMap
+         XDMArray
+         xdm-map?
+         xdm-array?
 
          XExpr
          XExprAttribute
          xexpr-attribute?
 
-         XMLThing)
+         XMLThing
+         AxisSymbol)
 
 (require (prefix-in xml: (file "xml.rkt")))
 
@@ -34,7 +42,8 @@
   ([content : (Listof (U String Symbol Exact-Nonnegative-Integer))]))
 
 (struct namespace-node node
-  ([uri : String]))
+  ([prefix : (Option String)]
+   [uri : String]))
 
 (struct processing-instruction-node node
   ([target : String]
@@ -44,7 +53,7 @@
   ([content : String]))
 
 (struct document-node node
-  ([document-uri : (Option String)]))
+  ([uri : (Option String)]))
 
 (struct element-node node
   ([name : String]
@@ -61,7 +70,11 @@
 
 (define-type XDMMap (Immutable-HashTable Symbol XDMItem))
 
+(define-predicate xdm-map? XDMMap)
+
 (define-type XDMArray (Listof XDMItem))
+
+(define-predicate xdm-array? XDMArray)
 
 (define-type XDMItem (U String
                         Number
@@ -76,8 +89,13 @@
                         document-node
                         element-node))
 
-(define-type XDMValue (U XDMItem
-                         (Listof XDMItem)))
+(define-predicate xdm-item? XDMItem)
+
+(define-type XDMSequence (Listof XDMItem))
+
+(define-predicate xdm-sequence? XDMSequence)
+
+(define-type XDMValue (U XDMItem XDMSequence))
 
 (define-type XExprAttribute (List Symbol String))
 
@@ -100,3 +118,17 @@
                          xml:entity
                          xml:cdata
                          xml:pcdata))
+
+(define-type AxisSymbol (U 'ancestor
+                           'ancestor-or-self
+                           'attribute
+                           'child
+                           'descendant
+                           'descendant-or-self
+                           'following
+                           'following-sibling
+                           'namespace
+                           'parent
+                           'preceding
+                           'preceding-sibling
+                           'self))
