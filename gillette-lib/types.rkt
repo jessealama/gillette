@@ -8,17 +8,18 @@
          (struct-out comment-node)
          (struct-out document-node)
          (struct-out element-node)
+         (struct-out xdm-array)
+         (struct-out xdm-map)
 
          XDMNode
+         xdm-node?
+         AtomicXDMItem
+         atomic-xdm-item?
          XDMItem
          xdm-item?
          XDMSequence
          xdm-sequence?
          XDMValue
-         XDMMap
-         XDMArray
-         xdm-map?
-         xdm-array?
 
          XExpr
          XExprAttribute
@@ -68,19 +69,23 @@
                         document-node
                         element-node))
 
-(define-type XDMMap (Immutable-HashTable Symbol XDMItem))
+(define-predicate xdm-node? XDMNode)
 
-(define-predicate xdm-map? XDMMap)
+(struct xdm-array
+  ([entries : (Listof XDMValue)]))
 
-(define-type XDMArray (Listof XDMItem))
+(struct xdm-map
+  ([data : (Immutable-HashTable Symbol XDMValue)]))
 
-(define-predicate xdm-array? XDMArray)
+(define-type AtomicXDMItem (U String
+                              Number
+                              Boolean))
 
-(define-type XDMItem (U String
-                        Number
-                        Boolean
-                        XDMMap
-                        XDMArray
+(define-predicate atomic-xdm-item? AtomicXDMItem)
+
+(define-type XDMItem (U AtomicXDMItem
+                        xdm-map
+                        xdm-array
                         attribute-node
                         text-node
                         namespace-node

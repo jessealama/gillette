@@ -8,6 +8,7 @@
                      racket/base)
          (file "parameters.rkt")
          (file "types.rkt")
+         (file "equality.rkt")
          (prefix-in axis: (file "axes.rkt")))
 
 (module+ test
@@ -21,7 +22,11 @@
     (define p (node-parent n))
     (cond [(eq? #f p) n]
           [else (find-it p)]))
-  (find-it (current-node)))
+  (define node (current-node))
+  (cond [(eq? #f node)
+         (error "Current node not set (or empty)")]
+        [else
+         (find-it node)]))
 
 ; -> (listof node?)
 (define (enumerate-nodes)
@@ -55,12 +60,30 @@
      (axis:self n)]))
 
 ; string? -> (listof node?)
-(define (element name)
-  (define pred (lambda (n)
-                 (and (element-node? n)
-                      (string=? name (element-node-name n)))))
+(define (element [name #f])
+  (define pred (cond [(string? name)
+                      (lambda (n)
+                        (and (element-node? n)
+                             (string=? name (element-node-name n))))]
+                     [else
+                      element-node?]))
+  (filter pred (enumerate-nodes)))
+
+; string? -> (listof attribute-node?)
+(define (attribute name)
   (define nodes (enumerate-nodes))
-  (filter pred nodes))
+  (define (do-it nodes)
+    (cond [(null? nodes)
+           (list)]
+          [(and (attribute-node? (car nodes))
+                (string=? name (attribute-node-name (car nodes))))
+           (list (car nodes))]
+          [(element-node? (car nodes))
+           (append (do-it (element-node-attributes (car nodes)))
+                   (do-it (cdr nodes)))]
+          [else
+           (do-it (cdr nodes))]))
+  (do-it (enumerate-nodes)))
 
 #|
 
@@ -84,11 +107,23 @@ Examples we should handle:
 
 (define // 42) ; not actually used!
 
+(define following 99)
+
+(define (atomize items)
+  (cond [(null? items)
+         (list)]
+        [else
+         (append (car items)
+                 (atomize (cdr items)))]))
+
 (define-syntax (xpath stx)
   (define-literal-set xpath-literals
-    (/ // *))
+    (/ // * following))
   (syntax-parse stx
     #:literal-sets (xpath-literals)
+    [(_ (following a ...))
+     #'(parameterize ([current-axis 'following])
+         (xpath a ...))]
     [(_ / a ...) ; (xpath / "A")
      #'(parameterize ([current-node (root)])
          (xpath a ...))]
@@ -101,15 +136,33 @@ Examples we should handle:
     [(_ test:string [pos:exact-nonnegative-integer]) ; (xpath "A" [1])
      #'(take/safe (drop/safe (element test)
                              (sub1 pos))
-                  1)]))
+                  1)]
+    [(_ *)
+     #'(element)]
+    [(_ * [test])
+     #'(filter (xpath test)
+               (element))]
+    [(_ * a ...)
+     #'(atomize
+        (for/list ([node (element)])
+          (parameterize ([current-node node])
+            (xpath a ...))))]
+    [(_ attr:keyword)
+     (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
+       #'(attribute a))]
+    [(_ (= x y))
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (xdm-equal? (xpath x)
+                       (xpath y))))]))
 
 (module+ test
   (define test-doc/string #<<DOC
 <A>
-  <B>
+  <B id="foo">
     <A/>
   </B>
-  <C><A/></C>
+  <C id="foo"><A id="bar"/></C>
 </A>
 DOC
 )
@@ -123,4 +176,6 @@ DOC
     (check-equal? (length (xpath "A" [1]))
                   1)
     (check-equal? (length (xpath // "A"))
-                  3)))
+                  3)
+    (check-equal? (length (xpath // * [(= #:id (following * #:id))]))
+                  1)))

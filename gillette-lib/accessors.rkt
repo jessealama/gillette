@@ -88,8 +88,9 @@
   #f)
 
 (: typed-value (-> XDMNode
-                   (Listof Number)))
+                   (Listof AtomicXDMItem)))
 (define (typed-value aNode)
+  (error "What is the typed value of ~a" aNode)
   (list))
 
 (: unparsed-entity-public-id (-> XDMNode
