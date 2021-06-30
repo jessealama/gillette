@@ -1,20 +1,15 @@
 #lang info
 
-(define collection "gilette")
+(define collection 'multi)
 
 (define version "0.2")
 
 (define deps
-  '("base"
-    "rackunit-lib"))
+  '("gillette-lib"
+    "gillette-docs"))
 
-(define build-deps
-  '("scribble-lib"
-    "racket-doc"
-    "rackunit-lib"))
-
-(define pkg-desc "XPath for Racket")
+(define implies
+  '("gillette-lib"
+    "gillette-docs"))
 
 (define pkg-authors '("jesse@serverracket.com"))
-
-(define scribblings '(("scribblings/gilette.scrbl" ())))

@@ -1,6 +1,6 @@
 #lang info
 
-(define collection 'multi)
+(define collection "gillette")
 
 (define build-deps '("scribble-lib"
                      "gillette-lib"
@@ -12,6 +12,4 @@
 
 (define pkg-desc "Documentation for Gillette")
 
-(define pkg-authors '("jesse@serverracket.com"))
-
-(define version "0.1")
+(define scribblings '(("gilette.scrble")))
