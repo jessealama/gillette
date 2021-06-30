@@ -2,7 +2,7 @@
 
 (define collection "gilette")
 
-(define version "0.1")
+(define version "0.2")
 
 (define deps
   '("base"
@@ -13,7 +13,7 @@
     "racket-doc"
     "rackunit-lib"))
 
-(define pkg-desc "Implementation of XPath 3.1")
+(define pkg-desc "XPath for Racket")
 
 (define pkg-authors '("jesse@serverracket.com"))
 
