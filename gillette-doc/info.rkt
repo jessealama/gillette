@@ -4,6 +4,7 @@
 
 (define build-deps '("scribble-lib"
                      "gillette-lib"
+                     "xml"
                      "racket-doc"))
 
 (define deps '("base"))

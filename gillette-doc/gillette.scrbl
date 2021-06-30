@@ -1,7 +1,7 @@
 #lang scribble/manual
 
 @require[@for-label[racket/base
-		    gillette-lib]]
+		    gillette]]
 
 @title[#:style "toc"]{Gillette—XPath for Racket}
 @author[(author+email "Jesse Alama" "jesse@serverracket.com")]

@@ -11,5 +11,3 @@
 (define pkg-desc "Gillette—XPath for Racket")
 
 (define pkg-authors '("jesse@serverracket.com"))
-
-(define version "0.1.0")
