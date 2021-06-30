@@ -12,4 +12,4 @@
 
 (define pkg-desc "Documentation for Gillette")
 
-(define scribblings '(("gilette.scrbl")))
+(define scribblings '(("gillette.scrbl")))
