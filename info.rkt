@@ -6,10 +6,10 @@
 
 (define deps
   '("gillette-lib"
-    "gillette-docs"))
+    "gillette-doc"))
 
 (define implies
   '("gillette-lib"
-    "gillette-docs"))
+    "gillette-doc"))
 
 (define pkg-authors '("jesse@serverracket.com"))
