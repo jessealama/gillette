@@ -2,7 +2,8 @@
 
 (define collection "tests")
 
-(define build-deps '("base"))
+(define build-deps '("base"
+                     "gillette-lib"))
 
 (define update-implies '("gillette-lib"))
 
