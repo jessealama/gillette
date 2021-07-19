@@ -4,7 +4,6 @@
 
 (define build-deps '("scribble-lib"
                      "gillette-lib"
-                     "xml"
                      "racket-doc"))
 
 (define deps '("base"))
@@ -14,3 +13,5 @@
 (define pkg-desc "Documentation for Gillette")
 
 (define scribblings '(("gillette.scrbl")))
+
+(define authors '("jesse@serverracket.com"))
