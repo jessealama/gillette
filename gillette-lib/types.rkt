@@ -28,7 +28,7 @@
          XMLThing
          AxisSymbol)
 
-(require (prefix-in xml: (file "xml.rkt")))
+(require (prefix-in xml: "xml.rkt"))
 
 (struct node
   ([parent : (Option XDMNode)]

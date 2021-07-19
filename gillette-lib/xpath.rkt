@@ -6,15 +6,15 @@
          syntax/parse
          (for-syntax syntax/parse
                      racket/base)
-         (file "parameters.rkt")
-         (file "types.rkt")
-         (file "equality.rkt")
-         (prefix-in axis: (file "axes.rkt")))
+         "parameters.rkt"
+         "types.rkt"
+         "equality.rkt"
+         (prefix-in axis: "axes.rkt"))
 
 (module+ test
   (require rackunit
            (prefix-in xml: xml)
-           (file "convert.rkt")))
+           "convert.rkt"))
 
 ; -> element-node?
 (define (root)

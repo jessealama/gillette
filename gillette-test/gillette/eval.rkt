@@ -8,9 +8,7 @@ See https://en.wikipedia.org/wiki/XPath#Examples .
 
 (require rackunit
          xml
-         (relative-in "../src/"
-                      (file "parameters.rkt")
-                      (file "eval.rkt")))
+         gillette)
 
 (define data #<<XML
 <r>
@@ -28,7 +26,7 @@ XML
 (define doc (read-xml (open-input-string data)))
 
 (module+ test
-  (parameterize ([current-document doc])
+  (parameterize ([current-node doc])
     (check-xdm-equal? (evaluate-xpath '(/ "r" "f" ('text)))
                       (list "Wikipedia" "Wiktionary"))
     (check-= (length (evaluate-xpath '(/ "Wikimedia" (// "editions"))))

@@ -15,8 +15,8 @@
          self)
 
 (require racket/list
-         (file "types.rkt")
-         (file "accessors.rkt"))
+         "types.rkt"
+         "accessors.rkt")
 
 (: ancestor : (-> XDMNode
                   (Listof XDMNode)))

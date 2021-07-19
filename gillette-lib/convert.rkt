@@ -3,8 +3,8 @@
 (provide xml->xdm
          xexpr->xdm)
 
-(require (prefix-in xml: (file "xml.rkt"))
-         (file "types.rkt"))
+(require (prefix-in xml: "xml.rkt")
+         "types.rkt")
 
 (: xml-attr->xdm-attr (-> xml:attribute
                           element-node

@@ -1,7 +1,7 @@
 #lang racket/base
 
-(require (file "xpath.rkt")
-         (file "convert.rkt"))
+(require "xpath.rkt"
+         "convert.rkt")
 
 (provide xpath
          xml->xdm

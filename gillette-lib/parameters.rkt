@@ -4,7 +4,7 @@
          current-nodes
          current-axis)
 
-(require (file "types.rkt"))
+(require "types.rkt")
 
 (: current-node (Parameter (Option XDMNode)))
 (define current-node (make-parameter #f))

@@ -1,6 +1,6 @@
 #lang typed/racket/base
 
-(require (file "types.rkt"))
+(require "types.rkt")
 
 (provide attributes
          base-uri
