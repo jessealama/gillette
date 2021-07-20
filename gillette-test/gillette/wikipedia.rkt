@@ -7,7 +7,8 @@ See https://en.wikipedia.org/wiki/XPath#Examples .
 |#
 
 (require rackunit
-         xml)
+         xml
+         gillette)
 
 (define data #<<XML
 <?xml version="1.0" encoding="utf-8"?>
@@ -39,26 +40,26 @@ XML
 (define doc (read-xml (open-input-string data)))
 
 (module+ test
-  (parameterize ([current-document doc])
-    (check-equal? (evaluate-xpath (xpath (/ "Wikimedia" "projects" "project" (@ "name"))))
+  (parameterize ([current-node doc])
+    (check-equal? (xpath (/ "Wikimedia" "projects" "project" #:name))
                   (list "Wikipedia" "Wiktionary"))
     (check-= (length (evaluate-xpath (xpath (/ "Wikimedia" (// "editions")))))
              2
              0)
-    (check-equal? (evaluate-xpath (xpath (/ "Wikimedia"
-                                            "projects"
-                                            "project"
-                                            "editions"
-                                            "edition"
-                                            (= (@ "language") "English")
-                                            (text))))
+    (check-equal? (xpath (/ "Wikimedia"
+                            "projects"
+                            "project"
+                            "editions"
+                            "edition"
+                            (= #:language "English")
+                            (text)))
                   (list "en.wikipedia.org"
                         "en.wiktionary.org"))
-    (check-equal? (evaluate-xpath (/ "Wikimedia"
-                                     "projects"
-                                     "project"
-                                     (= (@ "name") "Wikipedia")
-                                     "editions"
-                                     "edition"
-                                     (text)))
+    (check-equal? (/ "Wikimedia"
+                     "projects"
+                     "project"
+                     (= #:name "Wikipedia")
+                     "editions"
+                     "edition"
+                     (text))
                   (list "en.wikipedia.org"))))

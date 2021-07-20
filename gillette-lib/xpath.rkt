@@ -124,10 +124,10 @@ Examples we should handle:
     [(_ (following a ...))
      #'(parameterize ([current-axis 'following])
          (xpath a ...))]
-    [(_ / a ...) ; (xpath / "A")
+    [(_ / a:string ...) ; (xpath / "A")
      #'(parameterize ([current-node (root)])
          (xpath a ...))]
-    [(_ // a ...) ; (xpath // "A")
+    [(_ // a:string ...) ; (xpath // "A")
      #'(parameterize ([current-node (root)]
                       [current-axis 'descendant-or-self])
          (xpath a ...))]
