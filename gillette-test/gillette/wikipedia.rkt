@@ -41,25 +41,25 @@ XML
 
 (module+ test
   (parameterize ([current-node doc])
-    (check-equal? (xpath (/ "Wikimedia" "projects" "project" #:name))
+    (check-equal? (xpath / "Wikimedia" "projects" "project" #:name)
                   (list "Wikipedia" "Wiktionary"))
-    (check-= (length (evaluate-xpath (xpath (/ "Wikimedia" (// "editions")))))
+    (check-= (length (xpath / "Wikimedia" // "editions"))
              2
              0)
-    (check-equal? (xpath (/ "Wikimedia"
-                            "projects"
-                            "project"
-                            "editions"
-                            "edition"
-                            (= #:language "English")
-                            (text)))
+    (check-equal? (xpath / "Wikimedia"
+                         "projects"
+                         "project"
+                         "editions"
+                         "edition"
+                         (= #:language "English")
+                         (text))
                   (list "en.wikipedia.org"
                         "en.wiktionary.org"))
-    (check-equal? (/ "Wikimedia"
-                     "projects"
-                     "project"
-                     (= #:name "Wikipedia")
-                     "editions"
-                     "edition"
-                     (text))
+    (check-equal? (xpath / "Wikimedia"
+                         "projects"
+                         "project"
+                         (= #:name "Wikipedia")
+                         "editions"
+                         "edition"
+                         (text))
                   (list "en.wikipedia.org"))))
