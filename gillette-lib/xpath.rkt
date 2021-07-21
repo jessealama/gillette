@@ -60,6 +60,12 @@
     ['self
      (axis:self n)]))
 
+(define (enumerate&filter test)
+  (filter (lambda (n)
+            (parameterize ([current-node n])
+              (test)))
+          (enumerate-nodes)))
+
 ; string? -> (listof node?)
 (define (element [name #f])
   (define pred (cond [(string? name)
@@ -69,6 +75,12 @@
                      [else
                       element-node?]))
   (filter pred (enumerate-nodes)))
+
+; string? -> (xdm-node? -> boolean?)
+(define (element-has-name? name)
+  (lambda (n)
+    (and (element-node? n)
+         (string=? name (element-node-name n)))))
 
 (define (text)
   "")
@@ -117,26 +129,43 @@ Examples we should handle:
 
 (define-syntax (xpath stx)
   (syntax-parse stx
-    [(_)
-     #'(list)]
     [(_ ((~datum following) a ...))
      #'(parameterize ([current-axis 'following])
          (xpath a ...))]
-    [(_ (~datum /) a ...) ; (xpath / "A")
+    [(_ (~datum /) a) ; (xpath / "A")
      #'(parameterize ([current-node (root)]
                       [current-axis 'child])
-         (xpath a ...))]
-    [(_ (~datum //) a ...) ; (xpath // "A")
+         (enumerate&filter (xpath a)))]
+    [(_ (~datum /) a b ...) ; (xpath / "A" "B")
+     #'(parameterize ([current-node (root)]
+                      [current-axis 'child])
+         (for/list ([n (xpath a)])
+           (parameterize ([current-node n])
+             (xpath b ...))))]
+    [(_ (~datum //) a) ; (xpath // "A")
      #'(parameterize ([current-node (root)]
                       [current-axis 'descendant-or-self])
-         (xpath a ...))]
+         (xpath a))]
+    [(_ (~datum //) a b ...) ; (xpath // "A" "B")
+     #'(parameterize ([current-node (root)]
+                      [current-axis 'descendant-or-self])
+         (for/list ([n (xpath a)])
+           (parameterize ([current-node n])
+             (xpath b ...))))]
+    [(_ test:string)
+     #'(enumerate&filter (element-has-name? test))]
     [(_ test:string a ...)
-     #'(parameterize ([current-nodes (element test)])
-         (xpath a ...))]
+     #'(for/list ([n (enumerate&filter (element-has-name? test))])
+         (parameterize ([current-node n])
+           (xpath a ...)))]
+    [(_ [pos:exact-nonnegative-integer])
+     #'(take/safe (drop/safe (enumerate-nodes)
+                             (sub1 pos)))]
     [(_ [pos:exact-nonnegative-integer] a ...)
-     #'(parameterize ([current-nodes (take/safe (drop/safe (current-nodes)
-                                                           (sub1 pos)))])
-         (xpath a ...))]
+     #'(for/list ([n (take/safe (drop/safe (enumerate-nodes)
+                                           (sub1 pos)))])
+         (parameterize ([current-node n])
+           (xpath a ...)))]
     [(_ (~datum *))
      #'(element)]
     [(_ (~datum *) [test])
@@ -150,11 +179,9 @@ Examples we should handle:
     [(_ attr:keyword)
      (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
        #'(attribute a))]
-    [(_ ((~datum =) x y) a ...)
-     #'(cond [(xdm-equal? (xpath x)
-                          (xpath y))
-              (xpath a ...)]
-             [else (list)])]
+    [(_ ((~datum =) x y))
+     #'(xdm-equal? (xpath x)
+                   (xpath y))]
     [(_ ((~datum text)))
      #'(text)]))
 
@@ -167,7 +194,7 @@ Examples we should handle:
   <C id="foo"><A id="bar"/></C>
 </A>
 DOC
-)
+    )
   (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
   (define test-doc/xdm (xml->xdm test-doc/xml))
   (parameterize ([current-node test-doc/xdm])
