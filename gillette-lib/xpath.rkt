@@ -151,10 +151,10 @@ Examples we should handle:
      (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
        #'(attribute a))]
     [(_ ((~datum =) x y) a ...)
-     #'(parameterize ([current-nodes (filter (xdm-equal? (xpath x)
-                                                         (xpath y))
-                                             (current-nodes))])
-         (xpath a ...))]
+     #'(cond [(xdm-equal? (xpath x)
+                          (xpath y))
+              (xpath a ...)]
+             [else (list)])]
     [(_ ((~datum text)))
      #'(text)]))
 

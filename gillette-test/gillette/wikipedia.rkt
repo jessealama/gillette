@@ -40,7 +40,7 @@ XML
 (define doc (read-xml (open-input-string data)))
 
 (module+ test
-  (parameterize ([current-node doc])
+  (parameterize ([current-node (xml->xdm doc)])
     (check-equal? (xpath / "Wikimedia" "projects" "project" #:name)
                   (list "Wikipedia" "Wiktionary"))
     (check-= (length (xpath / "Wikimedia" // "editions"))
