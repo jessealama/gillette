@@ -154,7 +154,7 @@ Examples we should handle:
         (for/list ([n (element test)])
           (parameterize ([current-node n])
             (xpath a ...))))]
-    [(_ [pos:exact-nonnegative-integer])
+    [(_ [~brackets pos:exact-nonnegative-integer])
      #'(take/safe (drop/safe (enumerate-nodes)
                              (sub1 pos))
                   1)]
