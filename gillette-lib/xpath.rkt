@@ -129,7 +129,7 @@ Examples we should handle:
 
 (define-syntax (xpath stx)
   (syntax-parse stx
-    [(_ ((~datum following) a ...))
+    [(_ (~parens (~datum following) a ...))
      #'(parameterize ([current-axis 'following])
          (xpath a ...))]
     [(_ (~datum /) a:string) ; (xpath / "A")
@@ -158,7 +158,7 @@ Examples we should handle:
      #'(take/safe (drop/safe (enumerate-nodes)
                              (sub1 pos))
                   1)]
-    [(_ [pos:exact-nonnegative-integer] a ...)
+    [(_ [~brackets pos:exact-nonnegative-integer] a ...)
      #'(atomize
         (for/list ([n (take/safe (drop/safe (enumerate-nodes)
                                             (sub1 pos))
