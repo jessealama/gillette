@@ -132,57 +132,58 @@ Examples we should handle:
     [(_ ((~datum following) a ...))
      #'(parameterize ([current-axis 'following])
          (xpath a ...))]
-    [(_ (~datum /) a) ; (xpath / "A")
+    [(_ (~datum /) a:string) ; (xpath / "A")
      #'(parameterize ([current-node (root)]
                       [current-axis 'child])
-         (enumerate&filter (xpath a)))]
-    [(_ (~datum /) a b ...) ; (xpath / "A" "B")
+         (element a))]
+    [(_ (~datum /) a:string b ...) ; (xpath / "A" "B")
      #'(parameterize ([current-node (root)]
                       [current-axis 'child])
-         (for/list ([n (xpath a)])
-           (parameterize ([current-node n])
-             (xpath b ...))))]
-    [(_ (~datum //) a) ; (xpath // "A")
+         (atomize
+          (for/list ([n (element a)])
+            (parameterize ([current-node n])
+              (xpath b ...)))))]
+    [(_ (~datum //) a ...) ; (xpath // "A" "B")
      #'(parameterize ([current-node (root)]
                       [current-axis 'descendant-or-self])
-         (xpath a))]
-    [(_ (~datum //) a b ...) ; (xpath // "A" "B")
-     #'(parameterize ([current-node (root)]
-                      [current-axis 'descendant-or-self])
-         (for/list ([n (xpath a)])
-           (parameterize ([current-node n])
-             (xpath b ...))))]
+         (xpath a ...))]
     [(_ test:string)
-     #'(enumerate&filter (element-has-name? test))]
+     #'(element test)]
     [(_ test:string a ...)
-     #'(for/list ([n (enumerate&filter (element-has-name? test))])
-         (parameterize ([current-node n])
-           (xpath a ...)))]
+     #'(atomize
+        (for/list ([n (element test)])
+          (parameterize ([current-node n])
+            (xpath a ...))))]
     [(_ [pos:exact-nonnegative-integer])
      #'(take/safe (drop/safe (enumerate-nodes)
-                             (sub1 pos)))]
+                             (sub1 pos))
+                  1)]
     [(_ [pos:exact-nonnegative-integer] a ...)
-     #'(for/list ([n (take/safe (drop/safe (enumerate-nodes)
-                                           (sub1 pos)))])
-         (parameterize ([current-node n])
-           (xpath a ...)))]
+     #'(atomize
+        (for/list ([n (take/safe (drop/safe (enumerate-nodes)
+                                            (sub1 pos))
+                                 1)])
+          (parameterize ([current-node n])
+            (xpath a ...))))]
     [(_ (~datum *))
      #'(element)]
-    [(_ (~datum *) [test])
+    [(_ (~datum *) [~brackets test])
      #'(filter (xpath test)
                (element))]
     [(_ (~datum *) a ...)
      #'(atomize
-        (for/list ([node (element)])
-          (parameterize ([current-node node])
+        (for/list ([n (element)])
+          (parameterize ([current-node n])
             (xpath a ...))))]
     [(_ attr:keyword)
      (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
        #'(attribute a))]
-    [(_ ((~datum =) x y))
-     #'(xdm-equal? (xpath x)
-                   (xpath y))]
-    [(_ ((~datum text)))
+    [(_ (~parens (~datum =) x y))
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (xdm-equal? (xpath x)
+                       (xpath y))))]
+    [(_ (~parens (~datum text)))
      #'(text)]))
 
 (module+ test
@@ -199,8 +200,10 @@ DOC
   (define test-doc/xdm (xml->xdm test-doc/xml))
   (parameterize ([current-node test-doc/xdm])
     (check-equal? (length (xpath [1]))
-                  0)
+                  1)
     (check-equal? (length (xpath "A"))
+                  1)
+    (check-equal? (length (xpath "A" "B"))
                   1)
     (check-equal? (length (xpath / "A"))
                   1)

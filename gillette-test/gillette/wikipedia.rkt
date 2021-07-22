@@ -51,15 +51,72 @@ XML
                          "project"
                          "editions"
                          "edition"
-                         (= #:language "English")
+                         [(= #:language "English")]
                          (text))
                   (list "en.wikipedia.org"
                         "en.wiktionary.org"))
     (check-equal? (xpath / "Wikimedia"
                          "projects"
                          "project"
-                         (= #:name "Wikipedia")
+                         [(= #:name "Wikipedia")]
                          "editions"
                          "edition"
                          (text))
                   (list "en.wikipedia.org"))))
+
+(xpath /
+       "Wikimedia"
+       "projects"
+       "project"
+       "editions"
+       "edition"
+       [(= #:language "English")]
+       (text))
+
+;; ==>
+
+(parameterize ([current-node (root)]
+               [current-axis 'child])
+  (xpath "Wikimedia"
+         "projects"
+         "project"
+         "editions"
+         "edition"
+         [(= #:language "English")]
+         (text)))
+
+;; ==>
+
+(parameterize ([current-node (root)]
+               [current-axis 'child])
+  (atomize
+   (for/list ([n (elements-with-name "Wikipedia")])
+     (parameterize ([current-node n])
+       (atomize
+        (for/list ([n (elements-with-name "projects")])
+          (parameterize ([current-node n])
+            (atomize
+             (for/list ([n (elements-with-name "project")])
+               (parameterize ([current-node n])
+                 (atomize
+                  (for/list ([n (elements-with-name "editions")])
+                    (parameterize ([current-node n])
+                      (atomize
+                       (for/list ([n (elements-with-name "edition")])
+                         (parameterize ([current-node n])
+                           (cond [(and (= #:language "English"))
+                                  (xpath (text))]
+                                 [else
+                                  (list)])))))))))))))))))
+
+#;
+(parameterize ([current-node (root)]
+               [current-axis 'child])
+  (nodes-with-name "Wikimedia")
+  (nodes-with-name "projects")
+  (nodes-with-name "project")
+  (nodes-with-name "editions")
+  (nodes-with-name "edition")
+  (filter-nodes (xdm-equal? (keyword "language")
+                            "English"))
+  (text))
