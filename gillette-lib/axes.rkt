@@ -1,22 +1,60 @@
 #lang typed/racket/base
 
 (provide ancestor
+         ancestor/multi
+
          ancestor-or-self
+         ancestor-or-self/multi
+
          attribute
+         attribute/multi
+
          child
+         child/multi
+
          descendant
+         descendant/multi
+
          descendant-or-self
+         descendant-or-self/multi
+
          following
+         following/multi
+
          following-sibling
+         following-sibling/multi
+
          namespace
+         namespace/multi
+
          parent
+         parent/multi
+
          preceding
+         preceding/multi
+
          preceding-sibling
-         self)
+         preceding-sibling/multi
+
+         self
+         self/multi)
 
 (require racket/list
          "types.rkt"
          "accessors.rkt")
+
+(: remove-duplicate-nodes (-> (Listof XDMNode)
+                              (Listof XDMNode)))
+(define (remove-duplicate-nodes nodes)
+  (cond [(null? nodes)
+         (list)]
+        [(findf (lambda ([n : XDMNode])
+                  (eq? n (car nodes)))
+                (cdr nodes))
+         (remove-duplicate-nodes (cdr nodes))]
+        [else
+         (cons (car nodes)
+               (remove-duplicate-nodes (cdr nodes)))]))
 
 (: ancestor : (-> XDMNode
                   (Listof XDMNode)))
@@ -26,10 +64,20 @@
          (cons p (ancestor p))]
         [else (list)]))
 
+(: ancestor/multi : (-> (Listof XDMNode)
+                        (Listof XDMNode)))
+(define (ancestor/multi nodes)
+  (remove-duplicate-nodes (append-map ancestor nodes)))
+
 (: ancestor-or-self (-> XDMNode
                         (Listof XDMNode)))
 (define (ancestor-or-self aNode)
   (cons aNode (ancestor aNode)))
+
+(: ancestor-or-self/multi (-> (Listof XDMNode)
+                              (Listof XDMNode)))
+(define (ancestor-or-self/multi nodes)
+  (remove-duplicate-nodes (append-map ancestor-or-self nodes)))
 
 (: attribute (-> XDMNode
                  (Listof XDMNode)))
@@ -39,10 +87,20 @@
         [else
          (list)]))
 
+(: attribute/multi (-> (Listof XDMNode)
+                       (Listof XDMNode)))
+(define (attribute/multi nodes)
+  (remove-duplicate-nodes (append-map attribute nodes)))
+
 (: child (-> XDMNode
              (Listof XDMNode)))
 (define (child aNode)
   (node-children aNode))
+
+(: child/multi (-> (Listof XDMNode)
+                   (Listof XDMNode)))
+(define (child/multi nodes)
+  (remove-duplicate-nodes (append-map child nodes)))
 
 (: descendant (-> XDMNode
                   (Listof XDMNode)))
@@ -54,10 +112,20 @@
          (append kids
                  (apply append (map descendant kids)))]))
 
+(: descendant/multi (-> (Listof XDMNode)
+                        (Listof XDMNode)))
+(define (descendant/multi nodes)
+  (remove-duplicate-nodes (append-map descendant nodes)))
+
 (: descendant-or-self (-> XDMNode
                           (Listof XDMNode)))
 (define (descendant-or-self aNode)
   (cons aNode (descendant aNode)))
+
+(: descendant-or-self/multi (-> (Listof XDMNode)
+                                (Listof XDMNode)))
+(define (descendant-or-self/multi nodes)
+  (remove-duplicate-nodes (append-map descendant-or-self nodes)))
 
 (: following-sibling (-> XDMNode
                          (Listof XDMNode)))
@@ -73,6 +141,11 @@
         [else
          (list)]))
 
+(: following-sibling/multi (-> (Listof XDMNode)
+                               (Listof XDMNode)))
+(define (following-sibling/multi nodes)
+  (remove-duplicate-nodes (append-map following-sibling nodes)))
+
 (: following (-> XDMNode
                  (Listof XDMNode)))
 (define (following aNode)
@@ -81,10 +154,20 @@
           (apply append
                  (map descendant sibs))))
 
+(: following/multi (-> (Listof XDMNode)
+                       (Listof XDMNode)))
+(define (following/multi nodes)
+  (remove-duplicate-nodes (append-map following nodes)))
+
 (: namespace (-> XDMNode
                  (Listof XDMNode)))
 (define (namespace aNode)
   (list))
+
+(: namespace/multi (-> (Listof XDMNode)
+                       (Listof XDMNode)))
+(define (namespace/multi nodes)
+  (remove-duplicate-nodes (append-map namespace nodes)))
 
 (: parent (-> XDMNode
               (Listof XDMNode)))
@@ -94,6 +177,11 @@
          (list)]
         [else
          (list p)]))
+
+(: parent/multi (-> (Listof XDMNode)
+                    (Listof XDMNode)))
+(define (parent/multi nodes)
+  (remove-duplicate-nodes (append-map parent nodes)))
 
 (: preceding-sibling (-> XDMNode
                          (Listof XDMNode)))
@@ -108,6 +196,11 @@
                 (reverse (take kids i))])]
         [else
          (list)]))
+
+(: preceding-sibling/multi (-> (Listof XDMNode)
+                               (Listof XDMNode)))
+(define (preceding-sibling/multi nodes)
+  (remove-duplicate-nodes (append-map preceding-sibling nodes)))
 
 (: preceding (-> XDMNode
                  (Listof XDMNode)))
@@ -132,7 +225,17 @@
                                      (cons n result))])])]))
   (keep-going (preceding-sibling aNode) (list)))
 
+(: preceding/multi (-> (Listof XDMNode)
+                       (Listof XDMNode)))
+(define (preceding/multi nodes)
+  (remove-duplicate-nodes (append-map preceding nodes)))
+
 (: self (-> XDMNode
             (Listof XDMNode)))
 (define (self aNode)
   (list aNode))
+
+(: self/multi (-> (Listof XDMNode)
+                  (Listof XDMNode)))
+(define (self/multi nodes)
+  (remove-duplicate-nodes (append-map self nodes)))
