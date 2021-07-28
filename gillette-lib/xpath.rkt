@@ -31,41 +31,21 @@
 
 ; -> (listof node?)
 (define (enumerate-nodes)
-  (define nodes (current-nodes))
-  (cond [(eq? #f nodes)
-         (define n (current-node))
-         (unless n
-           (error "Current node not set!"))
-         (current-nodes (case (current-axis)
-                          ['ancestor (axis:ancestor n)]
-                          ['ancestor-or-self (axis:ancestor-or-self n)]
-                          ['attribute (axis:attribute n)]
-                          ['child (axis:child n)]
-                          ['descendant (axis:descendant n)]
-                          ['descendant-or-self (axis:descendant-or-self n)]
-                          ['following (axis:following n)]
-                          ['following-sibling (axis:following-sibling n)]
-                          ['namespace (axis:namespace n)]
-                          ['parent (axis:parent n)]
-                          ['preceding (axis:preceding n)]
-                          ['preceding-sibling (axis:preceding-sibling n)]
-                          ['self (axis:self n)]))
-         (current-nodes)]
-        [else
-         (case (current-axis)
-           ['ancestor (axis:ancestor/multi node)]
-           ['ancestor-or-self (axis:ancestor-or-self/multi nodes)]
-           ['attribute (axis:attribute/multi node)]
-           ['child (axis:child/multi nodes)]
-           ['descendant (axis:descendant/multi nodes)]
-           ['descendant-or-self (axis:descendant-or-self/multi nodes)]
-           ['following (axis:following/multi nodes)]
-           ['following-sibling (axis:following-sibling/multi nodes)]
-           ['namespace (axis:namespace/multi nodes)]
-           ['parent (axis:parent/multi nodes)]
-           ['preceding (axis:preceding/multi nodes)]
-           ['preceding-sibling (axis:preceding-sibling/multi nodes)]
-           ['self (axis:self/multi nodes)])]))
+  (define n (current-node))
+  (case (current-axis)
+    ['ancestor (axis:ancestor n)]
+    ['ancestor-or-self (axis:ancestor-or-self n)]
+    ['attribute (axis:attribute n)]
+    ['child (axis:child n)]
+    ['descendant (axis:descendant n)]
+    ['descendant-or-self (axis:descendant-or-self n)]
+    ['following (axis:following n)]
+    ['following-sibling (axis:following-sibling n)]
+    ['namespace (axis:namespace n)]
+    ['parent (axis:parent n)]
+    ['preceding (axis:preceding n)]
+    ['preceding-sibling (axis:preceding-sibling n)]
+    ['self (axis:self n)]))
 
 (define (reset-axis)
   (current-axis 'child))
@@ -78,8 +58,16 @@
                              (string=? name (element-node-name n))))]
                      [else
                       element-node?]))
-  (define nodes (enumerate-nodes))
-  (current-nodes (filter pred nodes)))
+  (filter pred (enumerate-nodes)))
+
+(define (nodes-with-name name)
+  (define pred (lambda (n)
+                 (cond [(element-node? n)
+                        (string=? name (element-node-name n))]
+                       [(attribute-node? n)
+                        (string=? name (attribute-node-name n))]
+                       [else #f])))
+  (filter pred (enumerate-nodes)))
 
 ; string? -> (xdm-node? -> boolean?)
 (define (element-has-name? name)
@@ -92,18 +80,20 @@
 
 ; string? -> (listof attribute-node?)
 (define (attribute name)
-  (define (do-it nodes)
-    (cond [(null? nodes)
-           (list)]
-          [(and (attribute-node? (car nodes))
-                (string=? name (attribute-node-name (car nodes))))
-           (list (car nodes))]
-          [(element-node? (car nodes))
-           (append (do-it (element-node-attributes (car nodes)))
-                   (do-it (cdr nodes)))]
-          [else
-           (do-it (cdr nodes))]))
-  (do-it (enumerate-nodes)))
+  (define n (current-node))
+  (cond [(and (attribute-node? n)
+              (string=? name (attribute-node-name n)))
+         (list n)]
+        [(element-node? n)
+         (define attrs (element-node-attributes n))
+         (define a (findf (lambda (attr)
+                            (string=? name (attribute-node-name attr)))
+                          (element-node-attributes n)))
+         (cond [(eq? #f a)
+                (list)]
+               [else
+                (list a)])]
+        [else (list)]))
 
 #|
 
@@ -128,75 +118,163 @@ Examples we should handle:
 (define (atomize items)
   (cond [(null? items)
          (list)]
+        [(list? (car items))
+         (append (atomize (car items))
+                 (atomize (cdr items)))]
         [else
-         (append (car items)
-                 (atomize (cdr items)))]))
+         (cons (car items)
+               (atomize (cdr items)))]))
 
 ; exact-nonnegative-integer? -> (listof node?)
+#;
 (define (index pos)
   (take/safe (drop/safe (current-nodes) (sub1 pos))
              1))
 
 (define-syntax (xpath-predicates stx)
   (syntax-parse stx
-    [(_)
-     #'(current-nodes)]
-    [(_ (~parens (~datum =) x y) test ...)
-     #'(begin
-         (current-nodes
-          (filter (lambda (n)
-                    (parameterize ([current-node n])
-                      (xdm-equal? (xpath x)
-                                  (xpath y))))
-                  (current-nodes)))
-         (xpath-predicates test ...))]))
+    [(_ (~parens (~datum =) x y))
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (and (xdm-equal? (xpath x)
+                            (xpath y)))))]))
+
+(define-syntax (xpath/top stx)
+  (syntax-parse stx
+    ;; normal axes cases
+    [(_ (~parens (~datum ancestor) a ...))
+     #'(parameterize ([current-axis 'ancestor])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum ancestor-or-self) a ...))
+     #'(parameterize ([current-axis 'ancestor-or-self])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum attribute) a ...))
+     #'(parameterize ([current-axis 'attribute])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum child) a ...))
+     #'(parameterize ([current-axis 'child])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum descendant) a ...))
+     #'(parameterize ([current-axis 'descendant])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum descendant-or-self) a ...))
+     #'(parameterize ([current-axis 'descendant-or-self])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum following) a ...))
+     #'(parameterize ([current-axis 'following])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum following-sibling) a ...))
+     #'(parameterize ([current-axis 'following-sibling])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum namespace) a ...))
+     #'(parameterize ([current-axis 'namespace])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum parent) a ...))
+     #'(parameterize ([current-axis 'parent])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum preceding) a ...))
+     #'(parameterize ([current-axis 'preceding])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum preceding-sibling) a ...))
+     #'(parameterize ([current-axis 'preceding-sibling])
+         (xpath/top a ...))]
+    [(_ (~parens (~datum self) a ...))
+     #'(parameterize ([current-axis 'self])
+         (xpath/top a ...))]
+
+    [(_ (~datum //) a b ...)
+     #'(parameterize ([current-node (root)]
+                      [current-axis 'descendant-or-self])
+         (xpath/top a b ...))]
+
+    ;; terminal cases
+    [(_ test:string)
+     #'(element test)]
+    [(_ attr:keyword)
+     (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
+       #'(attribute a))]
+    [(_ [~brackets test tests ...])
+     #'(filter (xpath-predicates test tests ...)
+               (enumerate-nodes))]
+
+    ;; step cases
+    [(_ (~datum *) a ...)
+     #'(let ([nodes (element)])
+         (for/list ([n nodes]
+                    [i (length nodes)])
+           (parameterize ([current-node n]
+                          [current-position (add1 i)])
+             (xpath a ...))))]
+    [(_ a (~datum /) b ...)
+     #'(let ([nodes (xpath a)])
+         (for/list ([n nodes]
+                    [i (length nodes)])
+           (parameterize ([current-node n]
+                          [current-position (add1 i)])
+             (xpath/top b ...))))]
+
+    ;; predicate case
+    [(_ a [~brackets pos:exact-nonnegative-integer] b ...)
+     #'(let ([nodes (xpath a)])
+         (for/list ([n nodes]
+                    [i (length nodes)]
+                    #:when (= (add1 i) pos))
+           (parameterize ([current-node n]
+                          [current-position (add1 i)])
+             (xpath/top b ...))))]
+    [(_ a [~brackets test tests ...] b ...)
+     #'(let ([nodes (xpath a)])
+         (for/list ([n nodes]
+                    [i (length nodes)]
+                    #:when (xpath-predicates test tests ...))
+           (parameterize ([current-node n]
+                          [current-position i])
+             (xpath/top b ...))))]))
 
 (define-syntax (xpath stx)
   (syntax-parse stx
     [(_)
-     #'(begin0
-           (current-nodes)
-         (current-nodes #f))]
+     (error "At least one step is needed")]
+
+    ;; error cases for named axes
+    [(_ (~parens (~datum ancestor)))
+     (error "Step missing after ancestor axis")]
+    [(_ (~parens (~datum ancestor-or-self)))
+     (error "Step missing after ancestor-or-self axis")]
+    [(_ (~parens (~datum attribute)))
+     (error "Step missing after attribute axis")]
+    [(_ (~parens (~datum child)))
+     (error "Step missing after child axis")]
+    [(_ (~parens (~datum descendant)))
+     (error "Step missing after descendant axis")]
+    [(_ (~parens (~datum descendant-or-self)))
+     (error "Step missing after descendant-or-self axis")]
     [(_ (~parens (~datum following)))
      (error "Step missing after following axis")]
-    [(_ (~parens (~datum following) a ...))
-     #'(parameterize ([current-axis 'following])
-         (xpath a ...))]
-    [(_ (~datum /))
-     (error "Step missing after /")]
-    [(_ (~datum /) a ...) ; (xpath / "A")
-     #'(parameterize ([current-node (root)]
-                      [current-axis 'child])
-         (xpath a ...))]
+    [(_ (~parens (~datum following-sibling)))
+     (error "Step missing after following-sibling axis")]
+    [(_ (~parens (~datum namespace)))
+     (error "Step missing after namespace axis")]
+    [(_ (~parens (~datum parent)))
+     (error "Step missing after parent axis")]
+    [(_ (~parens (~datum preceding)))
+     (error "Step missing after preceding axis")]
+    [(_ (~parens (~datum preceding-sibling)))
+     (error "Step missing after preceding-sibling axis")]
+    [(_ (~parens (~datum self)))
+     (error "Step missing after self axis")]
+
+    ;; incomplete
     [(_ (~datum //))
      (error "Step missing after //")]
-    [(_ (~datum //) a ...) ; (xpath // "A" "B")
-     #'(parameterize ([current-node (root)]
-                      [current-axis 'descendant-or-self])
-         (xpath a ...))]
-    [(_ test:string a ...)
-     #'(begin
-         (element test)
-         (xpath a ...))]
-    [(_ [~brackets pos:exact-nonnegative-integer] a ...)
-     #'(begin
-         (index pos)
-         (xpath a ...))]
-    [(_ (~datum *))
-     #'(element)]
-    [(_ (~datum *) a ...)
-     #'(begin
-         (element)
-         (xpath a ...))]
-    [(_ [~brackets test ...] a ...)
-     #'(begin
-         (xpath-predicates test ...)
-         (xpath a ...))]
-    [(_ attr:keyword)
-     (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
-       #'(attribute a))]
-    [(_ (~parens (~datum text)))
-     #'(text)]))
+
+    ;; easy:
+    [(_ (~datum /))
+     #'(list (root))]
+
+    ;; let's roll
+    [(_ a ...)
+     #'(atomize (xpath/top a ...))]))
 
 (module+ test
   (define test-doc/string #<<DOC
@@ -211,15 +289,45 @@ DOC
   (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
   (define test-doc/xdm (xml->xdm test-doc/xml))
   (parameterize ([current-node test-doc/xdm])
+    #;
     (check-equal? (length (xpath "A"))
                   1)
+    #;
     (check-equal? (length (xpath "A" "B"))
                   1)
+    #;
     (check-equal? (length (xpath / "A"))
                   1)
+    #;
     (check-equal? (length (xpath "A" [1]))
                   1)
+    #;
     (check-equal? (length (xpath // "A"))
                   3)
+    (define expanded
+      (parameterize ([current-node (root)]
+                     [current-axis 'descendant-or-self])
+        (let ([nodes (element)])
+          (for/list ([n nodes]
+                     [i (length nodes)]
+                     #:when (parameterize ([current-node n]
+                                           [current-position (add1 i)])
+                              (xdm-equal? (parameterize ([current-axis 'attribute])
+                                            (nodes-with-name "id"))
+                                          (parameterize ([current-axis 'following])
+                                            (let ([nodes (element)])
+                                              (log-error "found ~a nodes following a ~a node"
+                                                         (length nodes)
+                                                         (element-node-name n))
+                                              (remf* null?
+                                                     (for/list ([n nodes]
+                                                                [i (length nodes)])
+                                                       (parameterize ([current-node n]
+                                                                      [current-position (add1 i)]
+                                                                      [current-axis 'attribute])
+                                                         (nodes-with-name "id")))))))))
+            n))))
+    (log-error "expanded: ~a" expanded)
+    #;
     (check-equal? (length (xpath // * [(= #:id (following * #:id))]))
                   1)))
