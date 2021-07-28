@@ -131,9 +131,9 @@ Examples we should handle:
 (define-syntax (xpath-predicates stx)
   (syntax-parse stx
     ;; multiple predicates
-    [(_ pred preds ...)
-     #'(conjoin (xpath-predicates pred)
-                (xpath-predicates preds ...))]
+    [(_ p1 p ...+)
+     #'(conjoin (xpath-predicates p1)
+                (xpath-predicates p ...))]
     ;; atomic cases
     [(_ (~parens (~datum =) x y))
      #'(lambda (n)
