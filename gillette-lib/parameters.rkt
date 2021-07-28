@@ -9,8 +9,8 @@
 (: current-node (Parameter (Option XDMNode)))
 (define current-node (make-parameter #f))
 
-(: current-position (Parameter (Option Exact-Positive-Integer)))
-(define current-position (make-parameter #f))
+(: current-position (Parameter Exact-Positive-Integer))
+(define current-position (make-parameter 1))
 
 (: current-nodes (Parameter (Option (Listof XDMNode))))
 (define current-nodes (make-parameter #f))

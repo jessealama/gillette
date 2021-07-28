@@ -211,7 +211,6 @@
                   XDMValue
                   Boolean))
 (define (xdm-equal? thing1 thing2)
-  (log-error "xdm-equal? ~a ~a" thing1 thing2)
   (cond [(xdm-item? thing1)
          (cond [(xdm-item? thing2)
                 (xdm-items-equal? thing1 thing2)]

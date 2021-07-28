@@ -32,6 +32,8 @@
 ; -> (listof node?)
 (define (enumerate-nodes)
   (define n (current-node))
+  (when (eq? #f n)
+    (error "current node not set!"))
   (case (current-axis)
     ['ancestor (axis:ancestor n)]
     ['ancestor-or-self (axis:ancestor-or-self n)]
@@ -56,8 +58,8 @@
                       (lambda (n)
                         (and (element-node? n)
                              (string=? name (element-node-name n))))]
-                     [else
-                      element-node?]))
+                [else
+                 element-node?]))
   (filter pred (enumerate-nodes)))
 
 (define (nodes-with-name name)
@@ -136,8 +138,8 @@ Examples we should handle:
     [(_ (~parens (~datum =) x y))
      #'(lambda (n)
          (parameterize ([current-node n])
-           (and (xdm-equal? (xpath x)
-                            (xpath y)))))]))
+           (xdm-equal? (xpath x)
+                       (xpath y))))]))
 
 (define-syntax (xpath/top stx)
   (syntax-parse stx
@@ -182,54 +184,77 @@ Examples we should handle:
      #'(parameterize ([current-axis 'self])
          (xpath/top a ...))]
 
-    [(_ (~datum //) a b ...)
+    [(_ (~datum /) a ...)
+     #'(parameterize ([current-node (root)]
+                      [current-axis 'child])
+         (xpath/top a ...))]
+    [(_ (~datum //) a ...)
      #'(parameterize ([current-node (root)]
                       [current-axis 'descendant-or-self])
-         (xpath/top a b ...))]
+         (xpath/top a ...))]
+    [(_ (~datum *) a ...)
+     #'(xpath/top (element) a ...)]
+    [(_ attr:keyword a ...+)
+     (with-syntax [(attr/string (keyword->string (syntax->datum #'attr)))]
+       #'(parameterize ([current-axis 'attribute])
+           (xpath/top (attribute attr/string) a ...)))]
 
     ;; terminal cases
+    [(_ (~datum *))
+     #'(element)]
     [(_ test:string)
-     #'(element test)]
+     #'(nodes-with-name test)]
     [(_ attr:keyword)
      (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
-       #'(attribute a))]
+       #'(parameterize ([current-axis 'attribute])
+           (xpath a)))]
     [(_ [~brackets test tests ...])
      #'(filter (xpath-predicates test tests ...)
                (enumerate-nodes))]
+    [(_ a (~datum /) b)
+     #'(let ([nodes (xpath a)])
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)])
+            (parameterize ([current-node n]
+                           [current-position (add1 i)])
+              (xpath b)))))]
 
     ;; step cases
-    [(_ (~datum *) a ...)
-     #'(let ([nodes (element)])
-         (for/list ([n nodes]
-                    [i (length nodes)])
-           (parameterize ([current-node n]
-                          [current-position (add1 i)])
-             (xpath a ...))))]
     [(_ a (~datum /) b ...)
      #'(let ([nodes (xpath a)])
-         (for/list ([n nodes]
-                    [i (length nodes)])
-           (parameterize ([current-node n]
-                          [current-position (add1 i)])
-             (xpath/top b ...))))]
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)])
+            (parameterize ([current-node n]
+                           [current-position (add1 i)])
+              (xpath b ...)))))]
 
     ;; predicate case
     [(_ a [~brackets pos:exact-nonnegative-integer] b ...)
+     #'(xpath a [(= (position) pos)] b ...)]
+    [(_ a [~brackets test tests ...])
      #'(let ([nodes (xpath a)])
-         (for/list ([n nodes]
-                    [i (length nodes)]
-                    #:when (= (add1 i) pos))
-           (parameterize ([current-node n]
-                          [current-position (add1 i)])
-             (xpath/top b ...))))]
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)]
+                     #:when ((xpath-predicates test tests ...) n))
+            n)))]
     [(_ a [~brackets test tests ...] b ...)
      #'(let ([nodes (xpath a)])
-         (for/list ([n nodes]
-                    [i (length nodes)]
-                    #:when (xpath-predicates test tests ...))
-           (parameterize ([current-node n]
-                          [current-position i])
-             (xpath/top b ...))))]))
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)]
+                     #:when ((xpath-predicates test tests ...) n))
+            (parameterize ([current-node n]
+                           [current-position (add1 i)])
+              (xpath/top b ...)))))]
+
+    ;; functions
+    [(_ (~parens (~datum element)))
+     #'(element)]
+    [(_ (~parens (~datum position)))
+     #'(current-position)]))
 
 (define-syntax (xpath stx)
   (syntax-parse stx
@@ -271,10 +296,14 @@ Examples we should handle:
     ;; easy:
     [(_ (~datum /))
      #'(list (root))]
+    [(_ (~datum *))
+     #'(element)]
+    [(_ n:nat)
+     #'n]
 
     ;; let's roll
     [(_ a ...)
-     #'(atomize (xpath/top a ...))]))
+     #'(xpath/top a ...)]))
 
 (module+ test
   (define test-doc/string #<<DOC
@@ -289,45 +318,29 @@ DOC
   (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
   (define test-doc/xdm (xml->xdm test-doc/xml))
   (parameterize ([current-node test-doc/xdm])
-    #;
     (check-equal? (length (xpath "A"))
                   1)
-    #;
-    (check-equal? (length (xpath "A" "B"))
+    (check-equal? (length (xpath "A" / "B"))
                   1)
-    #;
+    (check-equal? (length (xpath "A" / "Z"))
+                  0)
     (check-equal? (length (xpath / "A"))
                   1)
-    #;
     (check-equal? (length (xpath "A" [1]))
                   1)
-    #;
+    (check-equal? (length (xpath "A" [2]))
+                  0)
     (check-equal? (length (xpath // "A"))
                   3)
-    (define expanded
-      (parameterize ([current-node (root)]
-                     [current-axis 'descendant-or-self])
-        (let ([nodes (element)])
-          (for/list ([n nodes]
-                     [i (length nodes)]
-                     #:when (parameterize ([current-node n]
-                                           [current-position (add1 i)])
-                              (xdm-equal? (parameterize ([current-axis 'attribute])
-                                            (nodes-with-name "id"))
-                                          (parameterize ([current-axis 'following])
-                                            (let ([nodes (element)])
-                                              (log-error "found ~a nodes following a ~a node"
-                                                         (length nodes)
-                                                         (element-node-name n))
-                                              (remf* null?
-                                                     (for/list ([n nodes]
-                                                                [i (length nodes)])
-                                                       (parameterize ([current-node n]
-                                                                      [current-position (add1 i)]
-                                                                      [current-axis 'attribute])
-                                                         (nodes-with-name "id")))))))))
-            n))))
-    (log-error "expanded: ~a" expanded)
-    #;
-    (check-equal? (length (xpath // * [(= #:id (following * #:id))]))
+    (check-equal? (length (xpath // * [(= #:id (following * / #:id))]))
                   1)))
+
+;; (xpath "A" [1])
+
+;; ; ==>
+
+;; (xpath/top "A" [1])
+
+;; ; ==>
+
+;; #'(xpath "A" [(= (position) 1)])

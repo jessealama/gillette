@@ -77,7 +77,6 @@
                  (Listof XDMNode)))
 (define (following aNode)
   (define sibs (following-sibling aNode))
-  (log-error "found ~a siblings" (length sibs))
   (append sibs
           (apply append
                  (map descendant sibs))))
