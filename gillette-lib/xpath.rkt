@@ -3,6 +3,7 @@
 (provide xpath)
 
 (require racket/list
+         racket/function
          syntax/parse
          (for-syntax syntax/parse
                      syntax/parse/class/paren-shape
@@ -127,14 +128,13 @@ Examples we should handle:
          (cons (car items)
                (atomize (cdr items)))]))
 
-; exact-nonnegative-integer? -> (listof node?)
-#;
-(define (index pos)
-  (take/safe (drop/safe (current-nodes) (sub1 pos))
-             1))
-
 (define-syntax (xpath-predicates stx)
   (syntax-parse stx
+    ;; multiple predicates
+    [(_ pred preds ...)
+     #'(conjoin (xpath-predicates pred)
+                (xpath-predicates preds ...))]
+    ;; atomic cases
     [(_ (~parens (~datum =) x y))
      #'(lambda (n)
          (parameterize ([current-node n])
@@ -333,14 +333,8 @@ DOC
     (check-equal? (length (xpath // "A"))
                   3)
     (check-equal? (length (xpath // * [(= #:id (following * / #:id))]))
-                  1)))
-
-;; (xpath "A" [1])
-
-;; ; ==>
-
-;; (xpath/top "A" [1])
-
-;; ; ==>
-
-;; #'(xpath "A" [(= (position) 1)])
+                  1)
+    (check-equal? (length (xpath // * [(= #:id (preceding * / #:id))]))
+                  1)
+    (check-equal? (length (xpath // * [(= #:id (self * / #:id))]))
+                  3)))
