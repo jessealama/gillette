@@ -190,7 +190,7 @@ Examples we should handle:
          (xpath/top a ...))]
     [(_ (~datum //) a ...)
      #'(parameterize ([current-node (root)]
-                      [current-axis 'descendant-or-self])
+                      [current-axis 'descendant])
          (xpath/top a ...))]
     [(_ (~datum *) a ...)
      #'(xpath/top (element) a ...)]
@@ -221,13 +221,22 @@ Examples we should handle:
               (xpath b)))))]
 
     ;; step cases
-    [(_ a (~datum /) b ...)
+    [(_ a (~datum /) b ...+)
      #'(let ([nodes (xpath a)])
          (atomize
           (for/list ([n nodes]
                      [i (length nodes)])
             (parameterize ([current-node n]
                            [current-position (add1 i)])
+              (xpath b ...)))))]
+    [(_ a (~datum //) b ...+)
+     #'(let ([nodes (xpath a)])
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)])
+            (parameterize ([current-node n]
+                           [current-position (add1 i)]
+                           [current-axis 'descendant])
               (xpath b ...)))))]
 
     ;; predicate case
@@ -322,6 +331,8 @@ DOC
                   1)
     (check-equal? (length (xpath "A" / "B"))
                   1)
+    (check-equal? (length (xpath "A" // "A"))
+                  2)
     (check-equal? (length (xpath "A" / "Z"))
                   0)
     (check-equal? (length (xpath / "A"))
