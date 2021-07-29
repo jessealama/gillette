@@ -99,38 +99,39 @@
                          (Listof XDMNode)))
 (define (preceding-sibling aNode)
   (define p (parent aNode))
-  (cond [(node? p)
-         (define kids (node-children p))
+  (cond [(null? p)
+         (list)]
+        [else
+         (define mom (car p))
+         (define kids (node-children mom))
          (cond [(eq? #f kids) ; shouldn't happen, but here you go:
                 (list)]
                [else
-                (define i (index-of p aNode))
-                (reverse (take kids i))])]
+                (define i (index-of kids aNode))
+                (cond [(eq? #f i) ; shouldn't happen
+                       (list)]
+                      [else
+                       (take kids i)])])]))
+
+(: remove-duplicate-nodes (-> (Listof XDMNode)
+                              (Listof XDMNode)))
+(define (remove-duplicate-nodes nodes)
+  (cond [(null? nodes)
+         (list)]
+        [(member (car nodes)
+                 (cdr nodes))
+         (remove-duplicate-nodes (cdr nodes))]
         [else
-         (list)]))
+         (cons (car nodes)
+               (remove-duplicate-nodes (cdr nodes)))]))
 
 (: preceding (-> XDMNode
                  (Listof XDMNode)))
 (define (preceding aNode)
-  (: keep-going (-> (Listof XDMNode)
-                    (Listof XDMNode)
-                    (Listof XDMNode)))
-  (define (keep-going nodes result)
-    (cond [(null? nodes)
-           result]
-          [else
-           (define n (car nodes))
-           (cond [(member n result)
-                  (keep-going (cdr nodes) result)]
-                 [else
-                  (define p (node-parent n))
-                  (cond [(eq? #f p)
-                         (keep-going (cdr nodes)
-                                     (cons n result))]
-                        [else
-                         (keep-going (cons p (cdr nodes))
-                                     (cons n result))])])]))
-  (keep-going (preceding-sibling aNode) (list)))
+  (define earlier-sibs (preceding-sibling aNode))
+  (define result (remove-duplicate-nodes (append (append-map ancestor earlier-sibs)
+                                                 earlier-sibs)))
+  result)
 
 (: self (-> XDMNode
             (Listof XDMNode)))
