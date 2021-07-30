@@ -79,7 +79,7 @@
          (string=? name (element-node-name n)))))
 
 (define (text)
-  "")
+  (filter text-node? (enumerate-nodes)))
 
 ; string? -> (listof attribute-node?)
 (define (attribute name)
@@ -202,14 +202,17 @@ Examples we should handle:
     ;; terminal cases
     [(_ (~datum *))
      #'(element)]
-    [(_ test:string)
-     #'(nodes-with-name test)]
+    [(_ ({~literal quote} test:id))
+     (with-syntax ([n (symbol->string (syntax->datum #'test))])
+       #'(nodes-with-name n))]
     [(_ attr:keyword)
      (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
        #'(parameterize ([current-axis 'attribute])
-           (xpath a)))]
-    [(_ [~brackets test tests ...])
-     #'(filter (xpath-predicates test tests ...)
+           (nodes-with-name a)))]
+    [(_ a [~brackets pos:exact-nonnegative-integer])
+     #'(xpath/top a [(= (position) pos)])]
+    [(_ [~brackets test ...+])
+     #'(filter (xpath-predicates test ...)
                (enumerate-nodes))]
     [(_ a (~datum /) b)
      #'(let ([nodes (xpath a)])
@@ -240,21 +243,38 @@ Examples we should handle:
               (xpath b ...)))))]
 
     ;; predicate case
-    [(_ a [~brackets pos:exact-nonnegative-integer] b ...)
+    [(_ a [~brackets pos:exact-nonnegative-integer] b ...+)
      #'(xpath a [(= (position) pos)] b ...)]
-    [(_ a [~brackets test tests ...])
+    [(_ a [~brackets test ...+])
      #'(let ([nodes (xpath a)])
          (atomize
           (for/list ([n nodes]
                      [i (length nodes)]
-                     #:when ((xpath-predicates test tests ...) n))
+                     #:when ((xpath-predicates test ...) n))
             n)))]
-    [(_ a [~brackets test tests ...] b ...)
+    [(_ a [~brackets test ...+] (~datum /) b ...+)
+     #'(let ([nodes (xpath a [test ...])])
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)])
+            (parameterize ([current-node n]
+                           [current-position (add1 i)])
+              (xpath b ...)))))]
+    [(_ a [~brackets test ...+] (~datum //) b ...+)
+     #'(let ([nodes (xpath a [test ...])])
+         (atomize
+          (for/list ([n nodes]
+                     [i (length nodes)])
+            (parameterize ([current-node n]
+                           [current-position (add1 i)]
+                           [current-axis 'descendant])
+              (xpath b ...)))))]
+    [(_ a [~brackets test ...+] b ...+)
      #'(let ([nodes (xpath a)])
          (atomize
           (for/list ([n nodes]
                      [i (length nodes)]
-                     #:when ((xpath-predicates test tests ...) n))
+                     #:when ((xpath-predicates test ...) n))
             (parameterize ([current-node n]
                            [current-position (add1 i)])
               (xpath/top b ...)))))]
@@ -263,7 +283,9 @@ Examples we should handle:
     [(_ (~parens (~datum element)))
      #'(element)]
     [(_ (~parens (~datum position)))
-     #'(current-position)]))
+     #'(current-position)]
+    [(_ (~parens (~datum text)))
+     #'(text)]))
 
 (define-syntax (xpath stx)
   (syntax-parse stx
@@ -309,6 +331,8 @@ Examples we should handle:
      #'(element)]
     [(_ n:nat)
      #'n]
+    [(_ s:string)
+     #'s]
 
     ;; let's roll
     [(_ a ...)
@@ -327,25 +351,27 @@ DOC
   (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
   (define test-doc/xdm (xml->xdm test-doc/xml))
   (parameterize ([current-node test-doc/xdm])
-    (check-equal? (length (xpath "A"))
+    (check-equal? (length (xpath 'A))
                   1)
-    (check-equal? (length (xpath "A" / "B"))
+    (check-equal? (length (xpath 'A / 'B))
                   1)
-    (check-equal? (length (xpath "A" // "A"))
+    (check-equal? (length (xpath 'A // 'A))
                   2)
-    (check-equal? (length (xpath "A" / "Z"))
+    (check-equal? (length (xpath 'A / 'Z))
                   0)
-    (check-equal? (length (xpath / "A"))
+    (check-equal? (length (xpath / 'A))
                   1)
-    (check-equal? (length (xpath "A" [1]))
+    (check-equal? (length (xpath 'A [1]))
                   1)
-    (check-equal? (length (xpath "A" [2]))
+    (check-equal? (length (xpath 'A [2]))
                   0)
-    (check-equal? (length (xpath // "A"))
+    (check-equal? (length (xpath // 'A))
                   3)
     (check-equal? (length (xpath // * [(= #:id (following * / #:id))]))
                   1)
     (check-equal? (length (xpath // * [(= #:id (preceding * / #:id))]))
                   1)
     (check-equal? (length (xpath // * [(= #:id (self * / #:id))]))
-                  3)))
+                  3)
+    (check-equal? (length (xpath / 'A / 'C [(= #:id "foo")] / 'A))
+                  1)))

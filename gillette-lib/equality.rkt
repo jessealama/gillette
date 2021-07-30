@@ -153,8 +153,14 @@
                         Boolean))
 (define (xdm-items-equal? thing1 thing2)
   (cond [(string? thing1)
-         (and (string? thing2)
-              (string=? thing1 thing2))]
+         (cond [(string? thing2)
+                (string=? thing1 thing2)]
+               [(attribute-node? thing2)
+                (string=? thing1 (attribute-node-value thing2))]
+               [else
+                (error "Don't know to compare string \"~a\" with ~a"
+                       thing1
+                       thing2)])]
         [(number? thing1)
          (and (number? thing2)
               (= thing1 thing2))]
@@ -168,8 +174,16 @@
          (and (xdm-array? thing2)
               (xdm-arrays-equal? thing1 thing2))]
         [(attribute-node? thing1)
-         (and (attribute-node? thing2)
-              (attributes-equal? thing1 thing2))]
+         (cond [(attribute-node? thing2)
+                (attributes-equal? thing1 thing2)]
+               [(string? thing2)
+                (string=? (attribute-node-value thing1)
+                          thing2)]
+               [else
+                (error "Don't know how to compare ~a attribute (value = ~a) with ~a"
+                       (attribute-node-name thing1)
+                       (attribute-node-value thing1)
+                       thing2)])]
         [(element-node? thing1)
          (and (element-node? thing2)
               (elements-equal? thing1 thing2))]
