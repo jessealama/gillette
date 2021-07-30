@@ -6,6 +6,7 @@
 (define authors '("jesse@serverracket.com"))
 (define deps '("base"
                "typed-racket-lib"
+               "syntax-classes-lib"
                "txexpr"
                "http-easy"))
 (define build-deps '("rackunit-lib"
