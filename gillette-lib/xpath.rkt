@@ -118,15 +118,15 @@ Examples we should handle:
   (with-handlers ([exn:fail:contract? (lambda (e) (list))])
     (drop lst n)))
 
-(define (atomize items)
+(define (flatten items)
   (cond [(null? items)
          (list)]
         [(list? (car items))
-         (append (atomize (car items))
-                 (atomize (cdr items)))]
+         (append (flatten (car items))
+                 (flatten (cdr items)))]
         [else
          (cons (car items)
-               (atomize (cdr items)))]))
+               (flatten (cdr items)))]))
 
 (define-syntax (xpath-predicates stx)
   (syntax-parse stx
@@ -138,8 +138,8 @@ Examples we should handle:
     [(_ (~parens (~datum =) x y))
      #'(lambda (n)
          (parameterize ([current-node n])
-           (xdm-equal? (xpath x)
-                       (xpath y))))]))
+           (xdm-equal? (xpath/top x)
+                       (xpath/top y))))]))
 
 (define-syntax (xpath/top stx)
   (syntax-parse stx
@@ -215,69 +215,75 @@ Examples we should handle:
      #'(filter (xpath-predicates test ...)
                (enumerate-nodes))]
     [(_ a (~datum /) b)
-     #'(let ([nodes (xpath a)])
-         (atomize
+     #'(let ([nodes (xpath/top a)])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
             (parameterize ([current-node n]
                            [current-position (add1 i)])
-              (xpath b)))))]
+              (xpath/top b)))))]
 
     ;; step cases
     [(_ a (~datum /) b ...+)
-     #'(let ([nodes (xpath a)])
-         (atomize
+     #'(let ([nodes (xpath/top a)])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
             (parameterize ([current-node n]
                            [current-position (add1 i)])
-              (xpath b ...)))))]
+              (xpath/top b ...)))))]
     [(_ a (~datum //) b ...+)
-     #'(let ([nodes (xpath a)])
-         (atomize
+     #'(let ([nodes (xpath/top a)])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
             (parameterize ([current-node n]
                            [current-position (add1 i)]
                            [current-axis 'descendant])
-              (xpath b ...)))))]
+              (xpath/top b ...)))))]
 
     ;; predicate case
     [(_ a [~brackets pos:exact-nonnegative-integer] b ...+)
-     #'(xpath a [(= (position) pos)] b ...)]
+     #'(xpath/top a [(= (position) pos)] b ...)]
     [(_ a [~brackets test ...+])
-     #'(let ([nodes (xpath a)])
-         (atomize
+     #'(let ([nodes (xpath/top a)])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)]
                      #:when ((xpath-predicates test ...) n))
             n)))]
     [(_ a [~brackets test ...+] (~datum /) b ...+)
-     #'(let ([nodes (xpath a [test ...])])
-         (atomize
+     #'(let ([nodes (xpath/top a [test ...])])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
             (parameterize ([current-node n]
                            [current-position (add1 i)])
-              (xpath b ...)))))]
+              (xpath/top b ...)))))]
     [(_ a [~brackets test ...+] (~datum //) b ...+)
-     #'(let ([nodes (xpath a [test ...])])
-         (atomize
+     #'(let ([nodes (xpath/top a [test ...])])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
             (parameterize ([current-node n]
                            [current-position (add1 i)]
                            [current-axis 'descendant])
-              (xpath b ...)))))]
+              (xpath/top b ...)))))]
     [(_ a [~brackets test ...+] b ...+)
-     #'(let ([nodes (xpath a)])
-         (atomize
+     #'(let ([nodes (xpath/top a)])
+         (flatten
           (for/list ([n nodes]
                      [i (length nodes)]
                      #:when ((xpath-predicates test ...) n))
             (parameterize ([current-node n]
                            [current-position (add1 i)])
               (xpath/top b ...)))))]
+
+    ;; basic data
+    [(_ n:nat)
+     #'n]
+    [(_ s:string)
+     #'s]
 
     ;; functions
     [(_ (~parens (~datum element)))
@@ -324,19 +330,9 @@ Examples we should handle:
     [(_ (~datum //))
      (error "Step missing after //")]
 
-    ;; easy:
-    [(_ (~datum /))
-     #'(list (root))]
-    [(_ (~datum *))
-     #'(element)]
-    [(_ n:nat)
-     #'n]
-    [(_ s:string)
-     #'s]
-
     ;; let's roll
     [(_ a ...)
-     #'(xpath/top a ...)]))
+     #'(atomize (xpath/top a ...))]))
 
 (module+ test
   (define test-doc/string #<<DOC
@@ -374,4 +370,6 @@ DOC
     (check-equal? (length (xpath // * [(= #:id (self * / #:id))]))
                   3)
     (check-equal? (length (xpath / 'A / 'C [(= #:id "foo")] / 'A))
+                  1)
+    (check-equal? (length (xpath / 'A / 'B / #:id))
                   1)))

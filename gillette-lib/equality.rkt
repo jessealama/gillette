@@ -1,6 +1,7 @@
 #lang typed/racket/base
 
-(provide xdm-equal?)
+(provide xdm-equal?
+         atomize)
 
 (require racket/set
          racket/list
@@ -214,7 +215,7 @@
          (apply append
                 (map atomize (xdm-array-entries value)))]
         [(xdm-node? value)
-         (typed-value value)]
+         (list (string-value value))]
         [(xdm-sequence? value)
          (apply append
                 (map atomize value))]

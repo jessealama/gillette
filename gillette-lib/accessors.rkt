@@ -77,10 +77,35 @@
 (define (parent aNode)
   (node-parent aNode))
 
+(: text-content->string (-> (Listof (U String Symbol Exact-Nonnegative-Integer))
+                            String))
+(define (text-content->string pieces)
+  (cond [(null? pieces)
+         ""]
+        [else
+         (define p (car pieces))
+         (define s
+           (cond [(string? p)
+                  p]
+                 [(symbol? p)
+                  "entity!"]
+                 [else
+                  (format "~a" (integer->char (car pieces)))]))
+         (string-append s (text-content->string (cdr pieces)))]))
+
 (: string-value (-> XDMNode
                     String))
 (define (string-value aNode)
-  "")
+  (cond [(text-node? aNode)
+         (text-content->string (text-node-content aNode))]
+        [(attribute-node? aNode)
+         (attribute-node-value aNode)]
+        [(element-node? aNode)
+         (apply string-append
+                (map string-value
+                     (filter text-node? (node-children aNode))))]
+        [else
+         (error (format "What is the string value of ~a" aNode))]))
 
 (: type-name (-> XDMNode
                  (Option String)))
@@ -90,8 +115,7 @@
 (: typed-value (-> XDMNode
                    (Listof AtomicXDMItem)))
 (define (typed-value aNode)
-  (error "What is the typed value of ~a" aNode)
-  (list))
+  (error (format "What is the typed value of ~a" aNode)))
 
 (: unparsed-entity-public-id (-> XDMNode
                                  String
