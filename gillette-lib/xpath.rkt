@@ -296,6 +296,15 @@ Examples we should handle:
     [(_ s:string)
      #'s]
 
+    ;; comparisons
+    [(_ (~parens (~datum =) x y))
+     #'(flatten
+        (let ([nodes (enumerate-nodes)])
+          (for/list ([n nodes]
+                     [i (length nodes)]
+                     #:when ((xpath-predicates (= x y)) n))
+            n)))]
+
     ;; functions
     [(_ (~parens (~datum element)))
      #'(element)]
@@ -384,7 +393,13 @@ DOC
                   1)
     (check-equal? (length (xpath / 'A / 'B / #:id))
                   1)
+    (check-equal? (length (xpath / 'A / 'B [#:id] / #:id))
+                  1)
     (check-equal? (length (xpath // * [#:id]))
                   3)
     (check-equal? (length (xpath // * [(not #:id)]))
-                  2)))
+                  2)
+    (check-equal? (length (xpath / [(not #:flag)]))
+                  1)
+    (check-equal? (length (xpath / [(= 1 1)]))
+                  1)))
