@@ -139,7 +139,18 @@ Examples we should handle:
      #'(lambda (n)
          (parameterize ([current-node n])
            (xdm-equal? (xpath/top x)
-                       (xpath/top y))))]))
+                       (xpath/top y))))]
+    [(_ (~parens (~datum not) p))
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (xdm-false? (xpath/top p))))]
+    [(_ attr:keyword)
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (xdm-true? (xpath/top attr))))]))
+
+(begin-for-syntax
+  (define-syntax-class symbol (pattern ({~literal quote} test:id))))
 
 (define-syntax (xpath/top stx)
   (syntax-parse stx
@@ -202,8 +213,8 @@ Examples we should handle:
     ;; terminal cases
     [(_ (~datum *))
      #'(element)]
-    [(_ ({~literal quote} test:id))
-     (with-syntax ([n (symbol->string (syntax->datum #'test))])
+    [(_ test:symbol) ; looks like (quote test)
+     (with-syntax ([n (symbol->string (syntax->datum (cadr (syntax-e #'test))))])
        #'(nodes-with-name n))]
     [(_ attr:keyword)
      (with-syntax [(a (keyword->string (syntax->datum #'attr)))]
@@ -372,4 +383,8 @@ DOC
     (check-equal? (length (xpath / 'A / 'C [(= #:id "foo")] / 'A))
                   1)
     (check-equal? (length (xpath / 'A / 'B / #:id))
-                  1)))
+                  1)
+    (check-equal? (length (xpath // * [#:id]))
+                  3)
+    (check-equal? (length (xpath // * [(not #:id)]))
+                  2)))

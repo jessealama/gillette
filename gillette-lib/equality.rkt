@@ -1,6 +1,8 @@
 #lang typed/racket/base
 
 (provide xdm-equal?
+         xdm-true?
+         xdm-false?
          atomize)
 
 (require racket/set
@@ -241,3 +243,56 @@
          #f]
         [else
          (equal-xdm-sequences? thing1 thing2)]))
+
+(define-type AtomicXDMItem (U String
+                              Number
+                              Boolean))
+
+(define-predicate atomic-xdm-item? AtomicXDMItem)
+
+(define-type XDMItem (U AtomicXDMItem
+                        xdm-map
+                        xdm-array
+                        attribute-node
+                        text-node
+                        namespace-node
+                        processing-instruction-node
+                        comment-node
+                        document-node
+                        element-node))
+
+(: xdm-item->boolean (-> XDMItem
+                         Boolean))
+(define (xdm-item->boolean item)
+  (cond [(xdm-node? item)
+         #t]
+        [(boolean? item)
+         item]
+        [(string? item)
+         (not (string=? "" item))]
+        [(number? item)
+         (not (= item 0))]
+        [else
+         (error (format "Don't know how to determine the boolean value of XDM item ~a" item))]))
+
+(: xdm->boolean (-> XDMValue
+                    Boolean))
+(define (xdm->boolean thing)
+  (cond [(xdm-item? thing)
+         (xdm-item->boolean thing)]
+        [(null? thing)
+         #f]
+        [(not (null? (cdr thing)))
+         (error "Cannot determine boolean value of a non-singleton sequence")]
+        [else
+         (xdm-item->boolean (car thing))]))
+
+(: xdm-true? (-> XDMValue
+                 Boolean))
+(define (xdm-true? thing)
+  (xdm->boolean thing))
+
+(: xdm-false? (-> XDMValue
+                  Boolean))
+(define (xdm-false? thing)
+  (not (xdm-true? thing)))
