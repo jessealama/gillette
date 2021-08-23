@@ -134,6 +134,13 @@ Examples we should handle:
     [(_ p1 p ...+)
      #'(conjoin (xpath-predicates p1)
                 (xpath-predicates p ...))]
+
+    [(_ (~parens (~datum or) x))
+     #'(xpath-predicates x)]
+    [(_ (~parens (~datum or) x y ...+))
+     #'(disjoin (xpath-predicates x)
+                (xpath-predicates (or y ...)))]
+
     ;; atomic cases
     [(_ (~parens (~datum =) x y))
      #'(lambda (n)
@@ -403,6 +410,19 @@ DOC
                   1)
     (check-equal? (length (xpath / [(= 1 1)]))
                   1)
-    (check-equal? (length (xpath (// * [(or (= #:id "foo")
-                                            (= #:id "bar"))])))
-                  3)))
+
+    ;; disjunction
+    (check-equal? (length (xpath // * [(or (= #:id "foo")
+                                           (= #:id "bar"))]))
+                  3)
+    (check-equal? (length (xpath // * [(or (= #:id "foo")
+                                           (= #:id "baz"))]))
+                  2)
+
+    ;; (implicit) conjunction
+    (check-equal? (length (xpath // * [(= #:id "foo")
+                                       (= #:id "bar")]))
+                  0)
+    (check-equal? (length (xpath // * [(= #:id "foo")
+                                       (= #:id "foo")]))
+                  2)))
