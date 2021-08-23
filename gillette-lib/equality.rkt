@@ -275,6 +275,7 @@
         [else
          (error (format "Don't know how to determine the boolean value of XDM item ~a" item))]))
 
+; https://www.w3.org/TR/xpath-31/#id-ebv
 (: xdm->boolean (-> XDMValue
                     Boolean))
 (define (xdm->boolean thing)
@@ -283,7 +284,11 @@
         [(null? thing)
          #f]
         [(not (null? (cdr thing)))
-         (error "Cannot determine boolean value of a non-singleton sequence")]
+         (cond [(element-node? (car thing))
+                #t]
+               [else
+                (log-error "about to blow up with ~a" thing)
+                (error "Cannot determine boolean value of a non-singleton sequence")])]
         [else
          (xdm-item->boolean (car thing))]))
 

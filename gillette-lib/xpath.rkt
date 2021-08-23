@@ -206,10 +206,20 @@ Examples we should handle:
      #'(parameterize ([current-node (root)]
                       [current-axis 'child])
          (xpath/top a ...))]
-    [(_ (~datum //) a ...)
+    [(_ (~datum //) a)
      #'(parameterize ([current-node (root)]
                       [current-axis 'descendant])
-         (xpath/top a ...))]
+         (xpath/top a))]
+    [(_ (~datum //) a b ...)
+     #'(let ([nodes (parameterize ([current-node (root)]
+                                   [current-axis 'descendant])
+                      (xpath/top a))])
+         (flatten
+          (for/list ([n nodes]
+                     [i (length nodes)])
+            (parameterize ([current-node n]
+                           [current-position (add1 i)])
+              (xpath/top b ...)))))]
     [(_ (~datum *) a ...)
      #'(xpath/top (element) a ...)]
     [(_ attr:keyword a ...+)
@@ -425,4 +435,9 @@ DOC
                   0)
     (check-equal? (length (xpath // * [(= #:id "foo")
                                        (= #:id "foo")]))
-                  2)))
+                  2)
+
+    (check-equal? (length (xpath // 'A [(not 'B)]))
+                  2)
+    (check-equal? (length (xpath // 'A [(not 'A)]))
+                  3)))
