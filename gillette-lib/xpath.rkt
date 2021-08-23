@@ -402,4 +402,7 @@ DOC
     (check-equal? (length (xpath / [(not #:flag)]))
                   1)
     (check-equal? (length (xpath / [(= 1 1)]))
-                  1)))
+                  1)
+    (check-equal? (length (xpath (// * [(or (= #:id "foo")
+                                            (= #:id "bar"))])))
+                  3)))
