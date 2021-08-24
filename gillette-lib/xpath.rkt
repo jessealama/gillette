@@ -25,10 +25,9 @@
     (cond [(eq? #f p) n]
           [else (find-it p)]))
   (define node (current-node))
-  (cond [(eq? #f node)
-         (error "Current node not set (or empty)")]
-        [else
-         (find-it node)]))
+  (unless node
+    (error "Current node not set (or empty)"))
+  (find-it node))
 
 ; -> (listof node?)
 (define (enumerate-nodes)
@@ -49,9 +48,6 @@
     ['preceding (axis:preceding n)]
     ['preceding-sibling (axis:preceding-sibling n)]
     ['self (axis:self n)]))
-
-(define (reset-axis)
-  (current-axis 'child))
 
 ; string? -> void
 (define (element [name #f])
@@ -206,14 +202,15 @@ Examples we should handle:
      #'(parameterize ([current-node (root)]
                       [current-axis 'child])
          (xpath/top a ...))]
-    [(_ (~datum //) a)
+    [(_ (~datum //) a ...)
      #'(parameterize ([current-node (root)]
                       [current-axis 'descendant])
-         (xpath/top a))]
+         (xpath/top a ...))]
     [(_ (~datum //) a b ...)
      #'(let ([nodes (parameterize ([current-node (root)]
                                    [current-axis 'descendant])
                       (xpath/top a))])
+         (log-error "got ~a nodes" (length nodes))
          (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
@@ -239,9 +236,6 @@ Examples we should handle:
            (nodes-with-name a)))]
     [(_ a [~brackets pos:exact-nonnegative-integer])
      #'(xpath/top a [(= (position) pos)])]
-    [(_ [~brackets test ...+])
-     #'(filter (xpath-predicates test ...)
-               (enumerate-nodes))]
     [(_ a (~datum /) b)
      #'(let ([nodes (xpath/top a)])
          (flatten
@@ -278,7 +272,10 @@ Examples we should handle:
          (flatten
           (for/list ([n nodes]
                      [i (length nodes)]
-                     #:when ((xpath-predicates test ...) n))
+                     #:when (parameterize ([current-axis 'child]
+                                           [current-node n]
+                                           [current-position (add1 i)])
+                              ((xpath-predicates test ...) n)))
             n)))]
     [(_ a [~brackets test ...+] (~datum /) b ...+)
      #'(let ([nodes (xpath/top a [test ...])])
@@ -416,10 +413,6 @@ DOC
                   3)
     (check-equal? (length (xpath // * [(not #:id)]))
                   2)
-    (check-equal? (length (xpath / [(not #:flag)]))
-                  1)
-    (check-equal? (length (xpath / [(= 1 1)]))
-                  1)
 
     ;; disjunction
     (check-equal? (length (xpath // * [(or (= #:id "foo")
