@@ -12,8 +12,5 @@
 (: current-position (Parameter Exact-Positive-Integer))
 (define current-position (make-parameter 1))
 
-(: current-nodes (Parameter (Option (Listof XDMNode))))
-(define current-nodes (make-parameter #f))
-
 (: current-axis (Parameter AxisSymbol))
 (define current-axis (make-parameter 'child))

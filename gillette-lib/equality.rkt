@@ -3,10 +3,14 @@
 (provide xdm-equal?
          xdm-true?
          xdm-false?
+         xdm-contains?
+         lower-case
+         normalize-space
          atomize)
 
 (require racket/set
          racket/list
+         racket/string
          racket/bool
          "types.rkt"
          "accessors.rkt")
@@ -287,8 +291,7 @@
          (cond [(element-node? (car thing))
                 #t]
                [else
-                (log-error "about to blow up with ~a" thing)
-                (error "Cannot determine boolean value of a non-singleton sequence")])]
+                (error "Cannot determine boolean value of a non-singleton sequence whose first element is not an element")])]
         [else
          (xdm-item->boolean (car thing))]))
 
@@ -301,3 +304,31 @@
                   Boolean))
 (define (xdm-false? thing)
   (not (xdm-true? thing)))
+
+(: xdm->string (-> XDMValue
+                   String))
+(define (xdm->string thing)
+  (cond [(string? thing)
+         thing]
+        [(null? thing)
+         ""]
+        [else
+         (error "Cannot determine string value of a non-singleton sequence")]))
+
+; https://www.w3.org/TR/xpath-functions-31/#func-contains
+(: xdm-contains? (-> XDMValue
+                     XDMValue
+                     Boolean))
+(define (xdm-contains? thing1 thing2)
+  (string-contains? (xdm->string thing1)
+                    (xdm->string thing2)))
+
+(: lower-case (-> XDMValue
+                  String))
+(define (lower-case thing)
+  (string-downcase (xdm->string thing)))
+
+(: normalize-space (-> XDMValue
+                       String))
+(define (normalize-space thing)
+  (string-normalize-spaces (xdm->string thing)))

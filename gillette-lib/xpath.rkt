@@ -132,9 +132,11 @@ Examples we should handle:
                 (xpath-predicates p ...))]
 
     [(_ (~parens (~datum or) x))
-     #'(xpath-predicates x)]
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (xdm-true? (xpath/top x))))]
     [(_ (~parens (~datum or) x y ...+))
-     #'(disjoin (xpath-predicates x)
+     #'(disjoin (xpath-predicates (or x))
                 (xpath-predicates (or y ...)))]
 
     ;; atomic cases
@@ -143,6 +145,11 @@ Examples we should handle:
          (parameterize ([current-node n])
            (xdm-equal? (xpath/top x)
                        (xpath/top y))))]
+    [(_ (~parens (~datum contains) x y))
+     #'(lambda (n)
+         (parameterize ([current-node n])
+           (xdm-contains? (xpath/top x)
+                          (xpath/top y))))]
     [(_ (~parens (~datum not) p))
      #'(lambda (n)
          (parameterize ([current-node n])
@@ -210,7 +217,6 @@ Examples we should handle:
      #'(let ([nodes (parameterize ([current-node (root)]
                                    [current-axis 'descendant])
                       (xpath/top a))])
-         (log-error "got ~a nodes" (length nodes))
          (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
@@ -225,6 +231,7 @@ Examples we should handle:
            (xpath/top (attribute attr/string) a ...)))]
 
     ;; terminal cases
+    #;
     [(_ (~datum *))
      #'(element)]
     [(_ test:symbol) ; looks like (quote test)
@@ -244,6 +251,22 @@ Examples we should handle:
             (parameterize ([current-node n]
                            [current-position (add1 i)])
               (xpath/top b)))))]
+
+    ;; logical cases
+    [(_ (~parens (~datum or) x))
+     #'(let ([n (current-node)]
+             [test (xpath-predicates x)])
+         (cond [(test n)
+                (list n)]
+               [else
+                (list)]))]
+    [(_ (~parens (~datum or) x y ...+))
+     #'(let ([n (current-node)]
+             [test (disjoin (xpath-predicates x)
+                            (xpath-predicates (or y ...)))])
+         (cond [(test n)
+                (list n)]
+               [else (list)]))]
 
     ;; step cases
     [(_ a (~datum /) b ...+)
@@ -267,39 +290,21 @@ Examples we should handle:
     ;; predicate case
     [(_ a [~brackets pos:exact-nonnegative-integer] b ...+)
      #'(xpath/top a [(= (position) pos)] b ...)]
-    [(_ a [~brackets test ...+])
+    [(_ a [~brackets test] ...+)
      #'(let ([nodes (xpath/top a)])
          (flatten
           (for/list ([n nodes]
                      [i (length nodes)]
-                     #:when (parameterize ([current-axis 'child]
+                     #:when (parameterize ([current-axis 'self]
                                            [current-node n]
                                            [current-position (add1 i)])
                               ((xpath-predicates test ...) n)))
             n)))]
-    [(_ a [~brackets test ...+] (~datum /) b ...+)
-     #'(let ([nodes (xpath/top a [test ...])])
+    [(_ a [~brackets test] ...+ (~datum /) b ...+)
+     #'(let ([nodes (xpath/top a [test] ...)])
          (flatten
           (for/list ([n nodes]
                      [i (length nodes)])
-            (parameterize ([current-node n]
-                           [current-position (add1 i)])
-              (xpath/top b ...)))))]
-    [(_ a [~brackets test ...+] (~datum //) b ...+)
-     #'(let ([nodes (xpath/top a [test ...])])
-         (flatten
-          (for/list ([n nodes]
-                     [i (length nodes)])
-            (parameterize ([current-node n]
-                           [current-position (add1 i)]
-                           [current-axis 'descendant])
-              (xpath/top b ...)))))]
-    [(_ a [~brackets test ...+] b ...+)
-     #'(let ([nodes (xpath/top a)])
-         (flatten
-          (for/list ([n nodes]
-                     [i (length nodes)]
-                     #:when ((xpath-predicates test ...) n))
             (parameterize ([current-node n]
                            [current-position (add1 i)])
               (xpath/top b ...)))))]
@@ -325,7 +330,13 @@ Examples we should handle:
     [(_ (~parens (~datum position)))
      #'(current-position)]
     [(_ (~parens (~datum text)))
-     #'(text)]))
+     #'(text)]
+    [(_ (~parens (~datum count) x))
+     #'(length (xpath/top x))]
+    [(_ (~parens (~datum lower-case) x))
+     #'(lower-case (xpath/top x))]
+    [(_ (~parens (~datum normalize-space) x))
+     #'(normalize-space (xpath/top x))]))
 
 (define-syntax (xpath stx)
   (syntax-parse stx
@@ -380,6 +391,11 @@ DOC
     )
   (define test-doc/xml (xml:read-xml/document (open-input-string test-doc/string)))
   (define test-doc/xdm (xml->xdm test-doc/xml))
+  #;
+  (parameterize ([current-node test-doc/xdm])
+    (check-equal? (length (xpath // * [(or (= #:id "foo")
+                                           (= #:id "bar"))]))
+                  3))
   (parameterize ([current-node test-doc/xdm])
     (check-equal? (length (xpath 'A))
                   1)
@@ -391,13 +407,23 @@ DOC
                   0)
     (check-equal? (length (xpath / 'A))
                   1)
+    (check-equal? (length (xpath // * [(or (parent 'B)
+                                           (parent 'C))]))
+                  2)
     (check-equal? (length (xpath 'A [1]))
                   1)
     (check-equal? (length (xpath 'A [2]))
                   0)
     (check-equal? (length (xpath // 'A))
                   3)
+    (check-equal? (length (xpath // 'A [(= 1 1)] [(= 2 2)]))
+                  3)
+    (check-equal? (length (xpath // 'A [(= 1 1)] [(= 1 2)]))
+                  0)
     (check-equal? (length (xpath // * [(= #:id (following * / #:id))]))
+                  1)
+    ; semantically same as previous, just with another filter:
+    (check-equal? (length (xpath // * [#:id] [(= #:id (following * [#:id] / #:id))]))
                   1)
     (check-equal? (length (xpath // * [(= #:id (preceding * / #:id))]))
                   1)
@@ -421,16 +447,25 @@ DOC
     (check-equal? (length (xpath // * [(or (= #:id "foo")
                                            (= #:id "baz"))]))
                   2)
+    (check-equal? (length (xpath // * [(not (or (= #:id "foo")
+                                                (= #:id "bar")))]))
+                  2)
 
     ;; (implicit) conjunction
-    (check-equal? (length (xpath // * [(= #:id "foo")
-                                       (= #:id "bar")]))
+    (check-equal? (length (xpath // *
+                                 [(= #:id "foo")]
+                                 [(= #:id "bar")]))
                   0)
-    (check-equal? (length (xpath // * [(= #:id "foo")
-                                       (= #:id "foo")]))
+    (check-equal? (length (xpath // *
+                                 [(= #:id "foo")]
+                                 [(= #:id "foo")]))
                   2)
 
-    (check-equal? (length (xpath // 'A [(not 'B)]))
+    (check-equal? (length (xpath // 'A [(not (child 'B))]))
                   2)
-    (check-equal? (length (xpath // 'A [(not 'A)]))
-                  3)))
+    (check-equal? (length (xpath // 'A [(not (child 'A))]))
+                  3)
+    (check-equal? (length (xpath // 'A
+                                 [(not (child 'A))]
+                                 [(not (child 'B))]))
+                  2)))
