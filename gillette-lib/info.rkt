@@ -8,6 +8,7 @@
                "typed-racket-lib"
                "syntax-classes-lib"
                "txexpr"
-               "http-easy"))
+               "http-easy"
+               "laramie-lib"))
 (define build-deps '("rackunit-lib"
                      "rackunit-typed"))
