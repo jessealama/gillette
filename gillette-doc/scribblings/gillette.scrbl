@@ -8,6 +8,6 @@
 
 @defmodule[gillette]
 
-Gilette is an implementation of XPath 3.1 for Racket. Evalute arbitrary XPath 3.1 expressions for XML and JSON documents.
+Gillette is an implementation of XPath 3.1 for Racket. Evalute arbitrary XPath 3.1 expressions for XML and JSON documents.
 
 @include-section["limitations.scrbl"]

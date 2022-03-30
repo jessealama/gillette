@@ -3,15 +3,14 @@
 (define collection "gillette")
 
 (define build-deps '("scribble-lib"
-                     "gillette-lib"
                      "racket-doc"))
 
-(define deps '("base"))
+(define deps '("base" "gillette-lib"))
 
 (define update-implies '("gillette-lib"))
 
 (define pkg-desc "Documentation for Gillette")
 
-(define scribblings '(("gillette.scrbl")))
+(define scribblings '(("scribblings/gillette.scrbl")))
 
 (define authors '("jesse@serverracket.com"))
