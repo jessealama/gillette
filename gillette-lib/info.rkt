@@ -1,7 +1,7 @@
 #lang info
 
 (define version "0.2")
-(define collection "gillette")
+(define collection 'multi)
 (define description "Implementation for Gillette")
 (define authors '("jesse@serverracket.com"))
 (define deps '("base"
