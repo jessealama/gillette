@@ -1,7 +1,5 @@
 #lang typed/racket/base
 
-(provide xdm-contains?)
-
 (require racket/set
          racket/list
          racket/bool
