@@ -3,6 +3,7 @@
 (define collection "tests")
 
 (define build-deps '("base"
+                     "rackunit-lib"
                      "gillette-lib"))
 
 (define update-implies '("gillette-lib"))
